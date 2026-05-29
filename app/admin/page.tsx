@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
+const ADMIN_PASSWORD = 'Liverpool1892@Tom.Brown2003'
+
 const emptyQuestion = {
   question_text: '',
   image_url: '',
@@ -14,6 +16,9 @@ const emptyQuestion = {
 }
 
 export default function AdminPage() {
+  const [authenticated, setAuthenticated] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [quizTitle, setQuizTitle] = useState('')
   const [quizDate, setQuizDate] = useState(new Date().toISOString().split('T')[0])
   const [questions, setQuestions] = useState(
@@ -21,6 +26,14 @@ export default function AdminPage() {
   )
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === ADMIN_PASSWORD) {
+      setAuthenticated(true)
+    } else {
+      setPasswordError('Incorrect password')
+    }
+  }
 
   const updateQuestion = (index: number, field: string, value: string) => {
     setQuestions(prev => prev.map((q, i) => i === index ? { ...q, [field]: value } : q))
@@ -60,6 +73,34 @@ export default function AdminPage() {
 
     setMessage('Quiz saved successfully!')
     setSaving(false)
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-6">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl font-bold text-green-400 mb-8 text-center">Admin Access</h1>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
+            <label className="text-sm text-gray-400 mb-1 block">Password</label>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 mb-4"
+              placeholder="Enter admin password"
+            />
+            {passwordError && <p className="text-red-400 text-sm mb-4">{passwordError}</p>}
+            <button
+              onClick={handlePasswordSubmit}
+              className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition"
+            >
+              Enter
+            </button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
