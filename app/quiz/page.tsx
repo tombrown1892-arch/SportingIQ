@@ -32,8 +32,11 @@ export default function QuizPage() {
   const [totalTime, setTotalTime] = useState(0)
   const [gameState, setGameState] = useState<'loading' | 'playing' | 'finished' | 'no-quiz' | 'already-played'>('loading')
   const [user, setUser] = useState<any>(null)
+  const [finalScore, setFinalScore] = useState(0)
+  const [finalPoints, setFinalPoints] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const scoreRef = useRef(0)
 
   useEffect(() => {
     loadQuiz()
@@ -121,7 +124,8 @@ export default function QuizPage() {
     setSelectedAnswer(answer)
 
     if (answer === questions[currentQuestion]?.correct_answer) {
-      setScore(s => s + 1)
+      scoreRef.current = scoreRef.current + 1
+      setScore(scoreRef.current)
     }
 
     setTimeout(() => {
@@ -137,20 +141,52 @@ export default function QuizPage() {
 
   const finishQuiz = async () => {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current)
+
+    const fs = scoreRef.current
+    const timeBonus = Math.max(0, 300 - totalTime)
+    const tp = (fs * 100) + timeBonus
+
+    setFinalScore(fs)
+    setFinalPoints(tp)
     setGameState('finished')
 
     if (user && quiz) {
-      const finalScore = score
-      const timeBonus = Math.max(0, 300 - totalTime)
-      const totalPoints = (finalScore * 100) + timeBonus
-
       await supabase.from('quiz_results').insert({
         user_id: user.id,
         quiz_id: quiz.id,
-        score: finalScore,
+        score: fs,
         time_seconds: totalTime,
-        total_points: totalPoints,
+        total_points: tp,
       })
+
+      // Update streak
+      const today = new Date().toISOString().split('T')[0]
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('streak, longest_streak, last_played')
+        .eq('id', user.id)
+        .single()
+
+      if (currentProfile) {
+        let newStreak = 1
+        if (currentProfile.last_played === yesterdayStr) {
+          newStreak = (currentProfile.streak || 0) + 1
+        }
+        const newLongest = Math.max(newStreak, currentProfile.longest_streak || 0)
+
+        await supabase
+          .from('profiles')
+          .update({
+            streak: newStreak,
+            longest_streak: newLongest,
+            last_played: today,
+          })
+          .eq('id', user.id)
+      }
     }
   }
 
@@ -192,16 +228,20 @@ export default function QuizPage() {
           <div className="text-5xl mb-4">✅</div>
           <h2 className="text-2xl font-bold mb-2">Already Played Today</h2>
           <p className="text-gray-400 mb-6">Come back tomorrow for a new quiz.</p>
-          <Link href="/" className="text-green-400 hover:text-green-300">← Back to home</Link>
+          <div className="flex gap-3 justify-center">
+            <Link href="/leaderboard" className="px-6 py-2 bg-green-500 text-black font-bold rounded-lg">
+              View Leaderboard
+            </Link>
+            <Link href="/" className="px-6 py-2 bg-gray-800 text-white rounded-lg">
+              Home
+            </Link>
+          </div>
         </div>
       </main>
     )
   }
 
   if (gameState === 'finished') {
-    const timeBonus = Math.max(0, 300 - totalTime)
-    const totalPoints = (score * 100) + timeBonus
-
     return (
       <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
@@ -210,7 +250,7 @@ export default function QuizPage() {
           <p className="text-gray-400 mb-8">Here's how you did today</p>
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6">
-            <div className="text-6xl font-bold text-green-400 mb-2">{score}/10</div>
+            <div className="text-6xl font-bold text-green-400 mb-2">{finalScore}/10</div>
             <p className="text-gray-400 mb-6">Correct answers</p>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -219,7 +259,7 @@ export default function QuizPage() {
                 <div className="text-gray-400">Time taken</div>
               </div>
               <div className="bg-gray-800 rounded-xl p-4">
-                <div className="text-2xl font-bold text-green-400">{totalPoints}</div>
+                <div className="text-2xl font-bold text-green-400">{finalPoints}</div>
                 <div className="text-gray-400">Total points</div>
               </div>
             </div>
@@ -236,8 +276,11 @@ export default function QuizPage() {
           )}
 
           <div className="flex gap-3">
-            <Link href="/" className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition text-center">
-              Home
+            <Link href="/leaderboard" className="flex-1 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition text-center">
+              Leaderboard
+            </Link>
+            <Link href={user ? "/profile" : "/"} className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition text-center">
+              {user ? 'My Profile' : 'Home'}
             </Link>
           </div>
         </div>
@@ -256,13 +299,11 @@ export default function QuizPage() {
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link href="/" className="text-green-400 font-bold text-lg">SportingIQ</Link>
           <div className="text-gray-400 text-sm">{currentQuestion + 1} / {questions.length}</div>
         </div>
 
-        {/* Progress bar */}
         <div className="w-full bg-gray-800 rounded-full h-2 mb-8">
           <div
             className="bg-green-500 h-2 rounded-full transition-all duration-300"
@@ -270,7 +311,6 @@ export default function QuizPage() {
           />
         </div>
 
-        {/* Timer */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-sm text-gray-400">Score: <span className="text-white font-semibold">{score}</span></div>
           <div className={`text-2xl font-bold ${timeLeft <= 5 ? 'text-red-400' : 'text-green-400'}`}>
@@ -278,7 +318,6 @@ export default function QuizPage() {
           </div>
         </div>
 
-        {/* Question */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           {question?.image_url && (
             <img src={question.image_url} alt="Question" className="w-full rounded-xl mb-4 object-cover max-h-48" />
@@ -286,7 +325,6 @@ export default function QuizPage() {
           <p className="text-xl font-semibold leading-relaxed">{question?.question_text}</p>
         </div>
 
-        {/* Options */}
         <div className="grid grid-cols-1 gap-3">
           {options.map((option) => (
             <button
