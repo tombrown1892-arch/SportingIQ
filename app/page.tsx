@@ -6,14 +6,14 @@ export default function Home() {
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 py-20 text-center">
         <div className="inline-block bg-green-500/10 text-green-400 text-sm font-medium px-3 py-1 rounded-full mb-6">
-          Daily Quiz Live Now
+          ⚽ Daily Football Quiz Live Now
         </div>
         <h2 className="text-5xl font-bold mb-6 leading-tight">
           How good is your<br />
-          <span className="text-green-400">Sporting IQ?</span>
+          <span className="text-green-400">Football IQ?</span>
         </h2>
         <p className="text-gray-400 text-xl mb-10 max-w-2xl mx-auto">
-          Take today's daily sports quiz, build your streak, and compete on the leaderboard against thousands of fans.
+          Take today's daily football quiz, build your streak, and compete on the leaderboard against thousands of fans.
         </p>
         <Link href="/quiz" className="inline-block px-8 py-4 bg-green-500 hover:bg-green-400 text-black font-bold text-lg rounded-xl transition">
           Take Today's Quiz →
@@ -25,7 +25,7 @@ export default function Home() {
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <div className="text-3xl mb-4">🏆</div>
           <h3 className="text-lg font-semibold mb-2">Daily Leaderboard</h3>
-          <p className="text-gray-400 text-sm">Compete against thousands of sports fans every day. See where you rank.</p>
+          <p className="text-gray-400 text-sm">Compete against thousands of football fans every day. See where you rank.</p>
         </div>
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
           <div className="text-3xl mb-4">🔥</div>
