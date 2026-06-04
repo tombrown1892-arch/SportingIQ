@@ -31,15 +31,22 @@ export default function QuizPage() {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(15)
   const [totalTime, setTotalTime] = useState(0)
-  const [gameState, setGameState] = useState<'loading' | 'playing' | 'finished' | 'no-quiz' | 'already-played'>('loading')
+  const [gameState, setGameState] = useState<'loading' | 'calculating' | 'playing' | 'finished' | 'no-quiz' | 'already-played'>('loading')
   const [user, setUser] = useState<any>(null)
+  const [isPremium, setIsPremium] = useState(false)
   const [finalScore, setFinalScore] = useState(0)
   const [finalPoints, setFinalPoints] = useState(0)
-  const [answeredQuestions, setAnsweredQuestions] = useState<{question: string, selected: string | null, correct: string}[]>([])
+  const [finalTime, setFinalTime] = useState(0)
+  const [myRank, setMyRank] = useState<number | null>(null)
+  const [totalPlayers, setTotalPlayers] = useState<number>(0)
+  const [newBadges, setNewBadges] = useState<string[]>([])
+  const [answeredQuestions, setAnsweredQuestions] = useState<{question: string, selected: string | null, correct: string, optionText: string}[]>([])
+  const [statsRevealed, setStatsRevealed] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null)
   const scoreRef = useRef(0)
-  const answeredQuestionsRef = useRef<{question: string, selected: string | null, correct: string}[]>([])
+  const totalTimeRef = useRef(0)
+  const answeredQuestionsRef = useRef<{question: string, selected: string | null, correct: string, optionText: string}[]>([])
 
   useEffect(() => {
     loadQuiz()
@@ -48,7 +55,8 @@ export default function QuizPage() {
   useEffect(() => {
     if (gameState === 'playing') {
       totalTimerRef.current = setInterval(() => {
-        setTotalTime(t => t + 1)
+        totalTimeRef.current += 1
+        setTotalTime(totalTimeRef.current)
       }, 1000)
     }
     return () => {
@@ -62,7 +70,7 @@ export default function QuizPage() {
       timerRef.current = setInterval(() => {
         setTimeLeft(t => {
           if (t <= 1) {
-            clearInterval(timerRef.current!)
+            clearInterval(timerRef.current!) 
             handleAnswer(null)
             return 0
           }
@@ -78,6 +86,15 @@ export default function QuizPage() {
   const loadQuiz = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_premium')
+        .eq('id', user.id)
+        .single()
+      setIsPremium(profile?.is_premium || false)
+    }
 
     const today = new Date().toISOString().split('T')[0]
     const { data: quizData } = await supabase
@@ -120,6 +137,12 @@ export default function QuizPage() {
     }
   }
 
+  const getOptionText = (option: string | null, question: Question) => {
+    if (!option) return 'No answer'
+    const map: any = { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d }
+    return `${option} — ${map[option]}`
+  }
+
   const handleAnswer = (answer: string | null) => {
     if (answered) return
     if (timerRef.current) clearInterval(timerRef.current)
@@ -130,7 +153,8 @@ export default function QuizPage() {
     answeredQuestionsRef.current = [...answeredQuestionsRef.current, {
       question: currentQ?.question_text,
       selected: answer,
-      correct: currentQ?.correct_answer
+      correct: currentQ?.correct_answer,
+      optionText: getOptionText(answer, currentQ)
     }]
 
     if (answer === currentQ?.correct_answer) {
@@ -140,6 +164,7 @@ export default function QuizPage() {
 
     setTimeout(() => {
       if (currentQuestion + 1 >= questions.length) {
+        setGameState('calculating')
         finishQuiz()
       } else {
         setCurrentQuestion(c => c + 1)
@@ -153,20 +178,21 @@ export default function QuizPage() {
     if (totalTimerRef.current) clearInterval(totalTimerRef.current)
 
     const fs = scoreRef.current
-    const timeBonus = Math.max(0, 300 - totalTime)
+    const ft = totalTimeRef.current
+    const timeBonus = Math.max(0, 300 - ft)
     const tp = (fs * 100) + timeBonus
 
     setFinalScore(fs)
     setFinalPoints(tp)
+    setFinalTime(ft)
     setAnsweredQuestions(answeredQuestionsRef.current)
-    setGameState('finished')
 
     if (user && quiz) {
       await supabase.from('quiz_results').insert({
         user_id: user.id,
         quiz_id: quiz.id,
         score: fs,
-        time_seconds: totalTime,
+        time_seconds: ft,
         total_points: tp,
       })
 
@@ -190,33 +216,49 @@ export default function QuizPage() {
 
         await supabase
           .from('profiles')
-          .update({
-            streak: newStreak,
-            longest_streak: newLongest,
-            last_played: today,
-          })
+          .update({ streak: newStreak, longest_streak: newLongest, last_played: today })
           .eq('id', user.id)
       }
 
+      const badgesBefore = await supabase
+        .from('badges')
+        .select('badge_type')
+        .eq('user_id', user.id)
+
       await checkAndAwardBadges(user.id, {
         score: fs,
-        time_seconds: totalTime,
+        time_seconds: ft,
         total_points: tp,
         quiz_id: quiz.id,
       })
+
+      const badgesAfter = await supabase
+        .from('badges')
+        .select('badge_type')
+        .eq('user_id', user.id)
+
+      const beforeTypes = new Set(badgesBefore.data?.map(b => b.badge_type) || [])
+      const newlyEarned = badgesAfter.data?.filter(b => !beforeTypes.has(b.badge_type)).map(b => b.badge_type) || []
+      setNewBadges(newlyEarned)
     }
-  }
 
-  const getAnswerStyle = (option: string) => {
-    if (!answered) return 'bg-gray-800 border-gray-700 hover:border-green-500 hover:bg-gray-750 cursor-pointer'
-    if (option === questions[currentQuestion]?.correct_answer) return 'bg-green-900 border-green-500'
-    if (option === selectedAnswer && option !== questions[currentQuestion]?.correct_answer) return 'bg-red-900 border-red-500'
-    return 'bg-gray-800 border-gray-700 opacity-50'
-  }
+    if (user && quiz) {
+      const { data: allResults } = await supabase
+        .from('quiz_results')
+        .select('user_id, total_points')
+        .eq('quiz_id', quiz.id)
+        .order('total_points', { ascending: false })
 
-  const getOptionLabel = (key: string, question: Question) => {
-    const map: any = { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d }
-    return map[key]
+      if (allResults) {
+        setTotalPlayers(allResults.length)
+        const rank = allResults.findIndex(r => r.user_id === user.id) + 1
+        if (rank > 0) setMyRank(rank)
+      }
+    }
+
+    setTimeout(() => {
+      setGameState('finished')
+    }, 1500)
   }
 
   if (gameState === 'loading') {
@@ -225,6 +267,17 @@ export default function QuizPage() {
         <div className="text-center">
           <div className="text-4xl mb-4">⚡</div>
           <p className="text-gray-400">Loading today's quiz...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (gameState === 'calculating') {
+    return (
+      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4 animate-pulse">📊</div>
+          <p className="text-gray-400">Calculating your results...</p>
         </div>
       </main>
     )
@@ -251,12 +304,8 @@ export default function QuizPage() {
           <h2 className="text-2xl font-bold mb-2">Already Played Today</h2>
           <p className="text-gray-400 mb-6">Come back tomorrow for a new quiz.</p>
           <div className="flex gap-3 justify-center">
-            <Link href="/leaderboard" className="px-6 py-2 bg-green-500 text-black font-bold rounded-lg">
-              View Leaderboard
-            </Link>
-            <Link href="/" className="px-6 py-2 bg-gray-800 text-white rounded-lg">
-              Home
-            </Link>
+            <Link href="/leaderboard" className="px-6 py-2 bg-green-500 text-black font-bold rounded-lg">View Leaderboard</Link>
+            <Link href="/" className="px-6 py-2 bg-gray-800 text-white rounded-lg">Home</Link>
           </div>
         </div>
       </main>
@@ -273,50 +322,105 @@ export default function QuizPage() {
             <p className="text-gray-400">Here's how you did today</p>
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6">
-            <div className="text-6xl font-bold text-green-400 text-center mb-2">{finalScore}/10</div>
-            <p className="text-gray-400 text-center mb-6">Correct answers</p>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-800 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-white">{totalTime}s</div>
-                <div className="text-gray-400">Time taken</div>
-              </div>
-              <div className="bg-gray-800 rounded-xl p-4 text-center">
-                <div className="text-2xl font-bold text-green-400">{finalPoints}</div>
-                <div className="text-gray-400">Total points</div>
-              </div>
-            </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6 text-center">
+            <div className="text-6xl font-bold text-green-400 mb-2">{finalScore}/10</div>
+            <p className="text-gray-400">Correct answers</p>
           </div>
 
-          {!user && (
-            <div className="bg-green-900/30 border border-green-800 rounded-xl p-6 mb-6">
-              <p className="text-green-400 font-semibold mb-1">Want to know how you ranked?</p>
-              <p className="text-gray-400 text-sm mb-4">Sign up free to get ranked on the leaderboard and see which questions you got wrong.</p>
-              <Link href="/signup" className="block w-full text-center px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
-                Sign Up Free
-              </Link>
-              <Link href="/premium" className="block w-full text-center px-6 py-2 text-green-400 hover:text-green-300 text-sm mt-2">
-                Or go Premium for full leaderboard access →
-              </Link>
+          {!user && !statsRevealed && (
+            <div className="relative mb-6">
+              <div className="blur-sm pointer-events-none">
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-800 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-white">32s</div>
+                    <div className="text-gray-400 text-sm">Time taken</div>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-green-400">868</div>
+                    <div className="text-gray-400 text-sm">Total points</div>
+                  </div>
+                </div>
+                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                  <div className="text-sm font-medium mb-2">Answer Breakdown</div>
+                  {[1,2,3].map(i => (
+                    <div key={i} className="h-8 bg-gray-800 rounded mb-2"/>
+                  ))}
+                </div>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center shadow-xl mx-4">
+                  <p className="text-green-400 font-bold mb-1">Want to see your full stats?</p>
+                  <p className="text-gray-400 text-sm mb-4">Sign up free to get ranked on the leaderboard and see which questions you got wrong.</p>
+                  <Link href="/signup" className="block w-full text-center px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition mb-2">
+                    Sign Up Free
+                  </Link>
+                  <Link href="/premium" className="block w-full text-center text-green-400 hover:text-green-300 text-sm">
+                    Or go Premium for full rankings →
+                  </Link>
+                </div>
+              </div>
             </div>
           )}
 
           {user && (
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-              <h3 className="font-bold mb-4">Answer Breakdown</h3>
-              <div className="space-y-3">
-                {answeredQuestions.map((q, i) => (
-                  <div key={i} className={`p-3 rounded-xl text-sm ${q.selected === q.correct ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
-                    <div className="font-medium mb-1">{q.question}</div>
-                    <div className="text-gray-400">
-                      Your answer: <span className={q.selected === q.correct ? 'text-green-400' : 'text-red-400'}>{q.selected || 'No answer'}</span>
-                      {q.selected !== q.correct && <span className="text-green-400 ml-2">✓ {q.correct}</span>}
-                    </div>
-                  </div>
-                ))}
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold text-white">{finalTime}s</div>
+                  <div className="text-gray-400 text-sm">Time taken</div>
+                </div>
+                <div className="bg-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold text-green-400">{finalPoints}</div>
+                  <div className="text-gray-400 text-sm">Total points</div>
+                </div>
               </div>
-            </div>
+
+              {isPremium && myRank && (
+                <div className="bg-green-900/20 border border-green-700 rounded-2xl p-6 mb-6 text-center">
+                  <p className="text-green-400 text-sm font-medium mb-1">Your Current Rank</p>
+                  <div className="text-4xl font-bold">#{myRank}</div>
+                  <p className="text-gray-400 text-sm mt-1">out of {totalPlayers} players today</p>
+                  <p className="text-gray-500 text-xs mt-1">Updates live as more people play</p>
+                </div>
+              )}
+
+              {!isPremium && (
+                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 text-center">
+                  <p className="text-gray-400 text-sm mb-3">Want to see where you ranked today?</p>
+                  <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition">
+                    Upgrade to Premium — £2.99/mo
+                  </Link>
+                </div>
+              )}
+
+              {newBadges.length > 0 && (
+                <div className="bg-yellow-900/20 border border-yellow-700 rounded-2xl p-5 mb-6">
+                  <p className="text-yellow-400 font-bold mb-3">🎉 New Badge{newBadges.length > 1 ? 's' : ''} Earned!</p>
+                  <div className="flex flex-wrap gap-2">
+                    {newBadges.map(badge => (
+                      <span key={badge} className="bg-yellow-900/40 text-yellow-400 px-3 py-1 rounded-full text-sm">{badge.replace(/_/g, ' ')}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+                <h3 className="font-bold mb-4">Answer Breakdown</h3>
+                <div className="space-y-3">
+                  {answeredQuestions.map((q, i) => (
+                    <div key={i} className={`p-3 rounded-xl text-sm ${q.selected === q.correct ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
+                      <div className="font-medium mb-1">{q.question}</div>
+                      <div className="text-gray-400 text-xs">
+                        Your answer: <span className={q.selected === q.correct ? 'text-green-400' : 'text-red-400'}>{q.optionText}</span>
+                        {q.selected !== q.correct && (
+                          <span className="text-green-400 ml-2">✓ Correct: {q.correct}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           <div className="flex gap-3">
@@ -370,10 +474,19 @@ export default function QuizPage() {
               key={option}
               onClick={() => handleAnswer(option)}
               disabled={answered}
-              className={`w-full text-left px-5 py-4 rounded-xl border-2 transition-all duration-200 ${getAnswerStyle(option)}`}
+              className={`w-full text-left px-5 py-4 rounded-xl border-2 transition-all duration-200 ${
+                answered && option === selectedAnswer
+                  ? 'bg-gray-700 border-gray-500'
+                  : answered
+                  ? 'bg-gray-800 border-gray-700 opacity-50'
+                  : 'bg-gray-800 border-gray-700 hover:border-green-500 cursor-pointer'
+              }`}
             >
               <span className="font-bold text-green-400 mr-3">{option}</span>
-              {getOptionLabel(option, question)}
+              {question && (() => {
+                const map: any = { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d }
+                return map[option]
+              })()}
             </button>
           ))}
         </div>
