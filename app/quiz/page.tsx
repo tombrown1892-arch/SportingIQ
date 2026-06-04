@@ -1,4 +1,4 @@
-'use client'
+"use client"
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkAndAwardBadges } from '@/lib/badges'
@@ -28,10 +28,10 @@ export default function QuizPage() {
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
-  const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(15)
   const [totalTime, setTotalTime] = useState(0)
-  const [gameState, setGameState] = useState<'loading' | 'calculating' | 'playing' | 'finished' | 'no-quiz' | 'already-played'>('loading')
+  const [gameState, setGameState] = useState<'loading' | 'briefing' | 'countdown' | 'playing' | 'calculating' | 'finished' | 'no-quiz' | 'already-played'>('loading')
+  const [countdown, setCountdown] = useState(3)
   const [user, setUser] = useState<any>(null)
   const [isPremium, setIsPremium] = useState(false)
   const [finalScore, setFinalScore] = useState(0)
@@ -40,13 +40,12 @@ export default function QuizPage() {
   const [myRank, setMyRank] = useState<number | null>(null)
   const [totalPlayers, setTotalPlayers] = useState<number>(0)
   const [newBadges, setNewBadges] = useState<string[]>([])
-  const [answeredQuestions, setAnsweredQuestions] = useState<{question: string, selected: string | null, correct: string, optionText: string}[]>([])
-  const [statsRevealed, setStatsRevealed] = useState(false)
+  const [answeredQuestions, setAnsweredQuestions] = useState<{question: string, selected: string | null, correct: string, correctText: string, selectedText: string, isCorrect: boolean}[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null)
   const scoreRef = useRef(0)
   const totalTimeRef = useRef(0)
-  const answeredQuestionsRef = useRef<{question: string, selected: string | null, correct: string, optionText: string}[]>([])
+  const answeredQuestionsRef = useRef<{question: string, selected: string | null, correct: string, correctText: string, selectedText: string, isCorrect: boolean}[]>([])
 
   useEffect(() => {
     loadQuiz()
@@ -70,7 +69,7 @@ export default function QuizPage() {
       timerRef.current = setInterval(() => {
         setTimeLeft(t => {
           if (t <= 1) {
-            clearInterval(timerRef.current!) 
+            clearInterval(timerRef.current!)
             handleAnswer(null)
             return 0
           }
@@ -82,6 +81,17 @@ export default function QuizPage() {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [currentQuestion, gameState, answered])
+
+  useEffect(() => {
+    if (gameState === 'countdown') {
+      if (countdown > 0) {
+        const timer = setTimeout(() => setCountdown(c => c - 1), 1000)
+        return () => clearTimeout(timer)
+      } else {
+        setGameState('playing')
+      }
+    }
+  }, [gameState, countdown])
 
   const loadQuiz = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -133,14 +143,14 @@ export default function QuizPage() {
 
     if (questionsData) {
       setQuestions(questionsData)
-      setGameState('playing')
+      setGameState('briefing')
     }
   }
 
   const getOptionText = (option: string | null, question: Question) => {
     if (!option) return 'No answer'
     const map: any = { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d }
-    return `${option} — ${map[option]}`
+    return map[option]
   }
 
   const handleAnswer = (answer: string | null) => {
@@ -150,16 +160,19 @@ export default function QuizPage() {
     setSelectedAnswer(answer)
 
     const currentQ = questions[currentQuestion]
+    const isCorrect = answer === currentQ?.correct_answer
+
     answeredQuestionsRef.current = [...answeredQuestionsRef.current, {
       question: currentQ?.question_text,
       selected: answer,
       correct: currentQ?.correct_answer,
-      optionText: getOptionText(answer, currentQ)
+      correctText: getOptionText(currentQ?.correct_answer, currentQ),
+      selectedText: getOptionText(answer, currentQ),
+      isCorrect
     }]
 
-    if (answer === currentQ?.correct_answer) {
+    if (isCorrect) {
       scoreRef.current = scoreRef.current + 1
-      setScore(scoreRef.current)
     }
 
     setTimeout(() => {
@@ -186,6 +199,16 @@ export default function QuizPage() {
     setFinalPoints(tp)
     setFinalTime(ft)
     setAnsweredQuestions(answeredQuestionsRef.current)
+
+    // Store guest result in localStorage for post-signup
+    if (!user && quiz) {
+      localStorage.setItem('guestQuizResult', JSON.stringify({
+        quiz_id: quiz.id,
+        score: fs,
+        time_seconds: ft,
+        total_points: tp,
+      }))
+    }
 
     if (user && quiz) {
       await supabase.from('quiz_results').insert({
@@ -240,9 +263,7 @@ export default function QuizPage() {
       const beforeTypes = new Set(badgesBefore.data?.map(b => b.badge_type) || [])
       const newlyEarned = badgesAfter.data?.filter(b => !beforeTypes.has(b.badge_type)).map(b => b.badge_type) || []
       setNewBadges(newlyEarned)
-    }
 
-    if (user && quiz) {
       const { data: allResults } = await supabase
         .from('quiz_results')
         .select('user_id, total_points')
@@ -267,6 +288,56 @@ export default function QuizPage() {
         <div className="text-center">
           <div className="text-4xl mb-4">⚡</div>
           <p className="text-gray-400">Loading today's quiz...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (gameState === 'briefing') {
+    return (
+      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-6">
+        <div className="w-full max-w-md text-center">
+          <div className="text-5xl mb-6">⚽</div>
+          <h2 className="text-3xl font-bold mb-2">Today's Quiz</h2>
+          <p className="text-green-400 font-medium mb-8">{quiz?.title}</p>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8 text-left space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">❓</span>
+              <span className="text-gray-300">10 questions — answer before time runs out</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⏱️</span>
+              <span className="text-gray-300">15 seconds per question — don't run out of time</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚡</span>
+              <span className="text-gray-300"><strong className="text-white">Speed matters</strong> — faster correct answers score more points</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">📅</span>
+              <span className="text-gray-300">You can only play once per day</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setGameState('countdown')}
+            className="w-full py-4 bg-green-500 hover:bg-green-400 text-black font-bold text-lg rounded-xl transition"
+          >
+            Start Quiz →
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  if (gameState === 'countdown') {
+    return (
+      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-9xl font-bold text-green-400 animate-pulse">
+            {countdown === 0 ? 'Go!' : countdown}
+          </div>
         </div>
       </main>
     )
@@ -322,15 +393,17 @@ export default function QuizPage() {
             <p className="text-gray-400">Here's how you did today</p>
           </div>
 
+          {/* Score - always visible */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6 text-center">
             <div className="text-6xl font-bold text-green-400 mb-2">{finalScore}/10</div>
             <p className="text-gray-400">Correct answers</p>
           </div>
 
-          {!user && !statsRevealed && (
+          {/* Guest - blurred stats */}
+          {!user && (
             <div className="relative mb-6">
-              <div className="blur-sm pointer-events-none">
-                <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="blur-sm pointer-events-none space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-800 rounded-xl p-4 text-center">
                     <div className="text-2xl font-bold text-white">32s</div>
                     <div className="text-gray-400 text-sm">Time taken</div>
@@ -341,27 +414,28 @@ export default function QuizPage() {
                   </div>
                 </div>
                 <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-                  <div className="text-sm font-medium mb-2">Answer Breakdown</div>
+                  <div className="text-sm font-medium mb-3">Answer Breakdown</div>
                   {[1,2,3].map(i => (
-                    <div key={i} className="h-8 bg-gray-800 rounded mb-2"/>
+                    <div key={i} className="h-10 bg-gray-800 rounded mb-2"/>
                   ))}
                 </div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center shadow-xl mx-4">
-                  <p className="text-green-400 font-bold mb-1">Want to see your full stats?</p>
-                  <p className="text-gray-400 text-sm mb-4">Sign up free to get ranked on the leaderboard and see which questions you got wrong.</p>
-                  <Link href="/signup" className="block w-full text-center px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition mb-2">
-                    Sign Up Free
-                  </Link>
-                  <Link href="/premium" className="block w-full text-center text-green-400 hover:text-green-300 text-sm">
-                    Or go Premium for full rankings →
+                <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center shadow-xl mx-2">
+                  <p className="text-green-400 font-bold text-lg mb-1">You scored {finalScore}/10</p>
+                  <p className="text-gray-400 text-sm mb-4">See your full stats, get ranked and find out which you got wrong.</p>
+                  <Link
+                    href={`/join?score=${finalScore}`}
+                    className="block w-full text-center px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition"
+                  >
+                    Reveal My Stats →
                   </Link>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Logged in user stats */}
           {user && (
             <>
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -398,7 +472,7 @@ export default function QuizPage() {
                   <p className="text-yellow-400 font-bold mb-3">🎉 New Badge{newBadges.length > 1 ? 's' : ''} Earned!</p>
                   <div className="flex flex-wrap gap-2">
                     {newBadges.map(badge => (
-                      <span key={badge} className="bg-yellow-900/40 text-yellow-400 px-3 py-1 rounded-full text-sm">{badge.replace(/_/g, ' ')}</span>
+                      <span key={badge} className="bg-yellow-900/40 text-yellow-400 px-3 py-1 rounded-full text-sm capitalize">{badge.replace(/_/g, ' ')}</span>
                     ))}
                   </div>
                 </div>
@@ -408,14 +482,16 @@ export default function QuizPage() {
                 <h3 className="font-bold mb-4">Answer Breakdown</h3>
                 <div className="space-y-3">
                   {answeredQuestions.map((q, i) => (
-                    <div key={i} className={`p-3 rounded-xl text-sm ${q.selected === q.correct ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
-                      <div className="font-medium mb-1">{q.question}</div>
-                      <div className="text-gray-400 text-xs">
-                        Your answer: <span className={q.selected === q.correct ? 'text-green-400' : 'text-red-400'}>{q.optionText}</span>
-                        {q.selected !== q.correct && (
-                          <span className="text-green-400 ml-2">✓ Correct: {q.correct}</span>
-                        )}
-                      </div>
+                    <div key={i} className={`p-3 rounded-xl text-sm ${q.isCorrect ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
+                      <div className="font-medium mb-2">{q.question}</div>
+                      {q.isCorrect ? (
+                        <div className="text-green-400 text-xs">✓ Correct — {q.correctText}</div>
+                      ) : (
+                        <div className="text-xs space-y-1">
+                          <div className="text-red-400">✗ Your answer — {q.selectedText || 'No answer'}</div>
+                          <div className="text-green-400">✓ Correct — {q.correctText}</div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -454,8 +530,7 @@ export default function QuizPage() {
           />
         </div>
 
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-sm text-gray-400">Score: <span className="text-white font-semibold">{score}</span></div>
+        <div className="flex justify-end mb-6">
           <div className={`text-2xl font-bold ${timeLeft <= 5 ? 'text-red-400' : 'text-green-400'}`}>
             {timeLeft}s
           </div>

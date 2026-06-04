@@ -1,16 +1,19 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
-export default function SignUp() {
+function SignUpContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const plan = searchParams.get('plan')
 
   const handleSignUp = async () => {
     setLoading(true)
@@ -50,13 +53,48 @@ export default function SignUp() {
       password,
     })
 
-    if (!signInError) {
-      router.push('/quiz')
-    } else {
+    if (signInError) {
       setMessage('Account created! You can now log in.')
+      setLoading(false)
+      return
     }
 
-    setLoading(false)
+    // Save guest quiz result if exists
+    const guestResult = localStorage.getItem('guestQuizResult')
+    if (guestResult) {
+      try {
+        const result = JSON.parse(guestResult)
+        await supabase.from('quiz_results').insert({
+          user_id: data.user.id,
+          quiz_id: result.quiz_id,
+          score: result.score,
+          time_seconds: result.time_seconds,
+          total_points: result.total_points,
+        })
+        localStorage.removeItem('guestQuizResult')
+
+        // Update streak
+        const today = new Date().toISOString().split('T')[0]
+        await supabase
+          .from('profiles')
+          .update({ streak: 1, longest_streak: 1, last_played: today })
+          .eq('id', data.user.id)
+
+        // Redirect to results
+        router.push(`/results?score=${result.score}&time=${result.time_seconds}&points=${result.total_points}`)
+        return
+      } catch (e) {
+        localStorage.removeItem('guestQuizResult')
+      }
+    }
+
+    // If premium plan selected go to premium page
+    if (plan === 'premium') {
+      router.push('/premium')
+      return
+    }
+
+    router.push('/quiz')
   }
 
   return (
@@ -66,7 +104,9 @@ export default function SignUp() {
           <Link href="/">
             <h1 className="text-3xl font-bold text-green-400">SportingIQ</h1>
           </Link>
-          <p className="text-gray-400 mt-2">Create your free account</p>
+          <p className="text-gray-400 mt-2">
+            {plan === 'premium' ? 'Create your account to go Premium' : 'Create your free account'}
+          </p>
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
@@ -111,7 +151,7 @@ export default function SignUp() {
               disabled={loading}
               className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition disabled:opacity-50"
             >
-              {loading ? 'Creating account...' : 'Create Free Account'}
+              {loading ? 'Creating account...' : plan === 'premium' ? 'Create Account & Go Premium' : 'Create Free Account'}
             </button>
           </div>
 
@@ -124,5 +164,13 @@ export default function SignUp() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function SignUp() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950"/>}>
+      <SignUpContent />
+    </Suspense>
   )
 }
