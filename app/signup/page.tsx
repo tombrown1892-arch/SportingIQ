@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function SignUp() {
@@ -9,12 +10,12 @@ export default function SignUp() {
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const router = useRouter()
 
   const handleSignUp = async () => {
     setLoading(true)
     setMessage('')
 
-    // First create the auth user
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -32,10 +33,8 @@ export default function SignUp() {
       return
     }
 
-    // Wait briefly for auth to complete
     await new Promise(resolve => setTimeout(resolve, 1000))
 
-    // Then create the profile
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({ id: data.user.id, username }, { onConflict: 'id' })
@@ -46,7 +45,17 @@ export default function SignUp() {
       return
     }
 
-    setMessage('Account created! You can now log in.')
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (!signInError) {
+      router.push('/quiz')
+    } else {
+      setMessage('Account created! You can now log in.')
+    }
+
     setLoading(false)
   }
 
@@ -94,7 +103,7 @@ export default function SignUp() {
             </div>
 
             {message && (
-              <p className="text-sm text-green-400">{message}</p>
+              <p className="text-sm text-red-400">{message}</p>
             )}
 
             <button
