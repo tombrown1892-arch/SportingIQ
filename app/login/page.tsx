@@ -60,6 +60,11 @@ export default function Login() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500"
                 placeholder="••••••••"
               />
+              <div className="text-right mt-1">
+                <Link href="/forgot-password" className="text-sm text-green-400 hover:text-green-300">
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             {message && (
