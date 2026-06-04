@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { checkAndAwardBadges } from '@/lib/badges'
 import Link from 'next/link'
 
 interface Question {
@@ -34,9 +35,11 @@ export default function QuizPage() {
   const [user, setUser] = useState<any>(null)
   const [finalScore, setFinalScore] = useState(0)
   const [finalPoints, setFinalPoints] = useState(0)
+  const [answeredQuestions, setAnsweredQuestions] = useState<{question: string, selected: string | null, correct: string}[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const totalTimerRef = useRef<NodeJS.Timeout | null>(null)
   const scoreRef = useRef(0)
+  const answeredQuestionsRef = useRef<{question: string, selected: string | null, correct: string}[]>([])
 
   useEffect(() => {
     loadQuiz()
@@ -123,7 +126,14 @@ export default function QuizPage() {
     setAnswered(true)
     setSelectedAnswer(answer)
 
-    if (answer === questions[currentQuestion]?.correct_answer) {
+    const currentQ = questions[currentQuestion]
+    answeredQuestionsRef.current = [...answeredQuestionsRef.current, {
+      question: currentQ?.question_text,
+      selected: answer,
+      correct: currentQ?.correct_answer
+    }]
+
+    if (answer === currentQ?.correct_answer) {
       scoreRef.current = scoreRef.current + 1
       setScore(scoreRef.current)
     }
@@ -148,6 +158,7 @@ export default function QuizPage() {
 
     setFinalScore(fs)
     setFinalPoints(tp)
+    setAnsweredQuestions(answeredQuestionsRef.current)
     setGameState('finished')
 
     if (user && quiz) {
@@ -159,7 +170,6 @@ export default function QuizPage() {
         total_points: tp,
       })
 
-      // Update streak
       const today = new Date().toISOString().split('T')[0]
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
@@ -187,6 +197,13 @@ export default function QuizPage() {
           })
           .eq('id', user.id)
       }
+
+      await checkAndAwardBadges(user.id, {
+        score: fs,
+        time_seconds: totalTime,
+        total_points: tp,
+        quiz_id: quiz.id,
+      })
     }
   }
 
@@ -195,6 +212,11 @@ export default function QuizPage() {
     if (option === questions[currentQuestion]?.correct_answer) return 'bg-green-900 border-green-500'
     if (option === selectedAnswer && option !== questions[currentQuestion]?.correct_answer) return 'bg-red-900 border-red-500'
     return 'bg-gray-800 border-gray-700 opacity-50'
+  }
+
+  const getOptionLabel = (key: string, question: Question) => {
+    const map: any = { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d }
+    return map[key]
   }
 
   if (gameState === 'loading') {
@@ -243,22 +265,24 @@ export default function QuizPage() {
 
   if (gameState === 'finished') {
     return (
-      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-6">
-        <div className="w-full max-w-md text-center">
-          <div className="text-5xl mb-4">🏆</div>
-          <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-          <p className="text-gray-400 mb-8">Here's how you did today</p>
+      <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
+        <div className="max-w-md mx-auto">
+          <div className="text-center mb-8">
+            <div className="text-5xl mb-4">🏆</div>
+            <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
+            <p className="text-gray-400">Here's how you did today</p>
+          </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6">
-            <div className="text-6xl font-bold text-green-400 mb-2">{finalScore}/10</div>
-            <p className="text-gray-400 mb-6">Correct answers</p>
+            <div className="text-6xl font-bold text-green-400 text-center mb-2">{finalScore}/10</div>
+            <p className="text-gray-400 text-center mb-6">Correct answers</p>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-gray-800 rounded-xl p-4">
+              <div className="bg-gray-800 rounded-xl p-4 text-center">
                 <div className="text-2xl font-bold text-white">{totalTime}s</div>
                 <div className="text-gray-400">Time taken</div>
               </div>
-              <div className="bg-gray-800 rounded-xl p-4">
+              <div className="bg-gray-800 rounded-xl p-4 text-center">
                 <div className="text-2xl font-bold text-green-400">{finalPoints}</div>
                 <div className="text-gray-400">Total points</div>
               </div>
@@ -267,11 +291,31 @@ export default function QuizPage() {
 
           {!user && (
             <div className="bg-green-900/30 border border-green-800 rounded-xl p-6 mb-6">
-              <p className="text-green-400 font-semibold mb-2">Save your score!</p>
-              <p className="text-gray-400 text-sm mb-4">Create a free account to track your streak and save your results.</p>
-              <Link href="/signup" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
+              <p className="text-green-400 font-semibold mb-1">Want to know how you ranked?</p>
+              <p className="text-gray-400 text-sm mb-4">Sign up free to get ranked on the leaderboard and see which questions you got wrong.</p>
+              <Link href="/signup" className="block w-full text-center px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
                 Sign Up Free
               </Link>
+              <Link href="/premium" className="block w-full text-center px-6 py-2 text-green-400 hover:text-green-300 text-sm mt-2">
+                Or go Premium for full leaderboard access →
+              </Link>
+            </div>
+          )}
+
+          {user && (
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+              <h3 className="font-bold mb-4">Answer Breakdown</h3>
+              <div className="space-y-3">
+                {answeredQuestions.map((q, i) => (
+                  <div key={i} className={`p-3 rounded-xl text-sm ${q.selected === q.correct ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
+                    <div className="font-medium mb-1">{q.question}</div>
+                    <div className="text-gray-400">
+                      Your answer: <span className={q.selected === q.correct ? 'text-green-400' : 'text-red-400'}>{q.selected || 'No answer'}</span>
+                      {q.selected !== q.correct && <span className="text-green-400 ml-2">✓ {q.correct}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -289,12 +333,7 @@ export default function QuizPage() {
   }
 
   const question = questions[currentQuestion]
-  const options = [
-    { key: 'A', value: question?.option_a },
-    { key: 'B', value: question?.option_b },
-    { key: 'C', value: question?.option_c },
-    { key: 'D', value: question?.option_d },
-  ]
+  const options = ['A', 'B', 'C', 'D']
 
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
@@ -328,13 +367,13 @@ export default function QuizPage() {
         <div className="grid grid-cols-1 gap-3">
           {options.map((option) => (
             <button
-              key={option.key}
-              onClick={() => handleAnswer(option.key)}
+              key={option}
+              onClick={() => handleAnswer(option)}
               disabled={answered}
-              className={`w-full text-left px-5 py-4 rounded-xl border-2 transition-all duration-200 ${getAnswerStyle(option.key)}`}
+              className={`w-full text-left px-5 py-4 rounded-xl border-2 transition-all duration-200 ${getAnswerStyle(option)}`}
             >
-              <span className="font-bold text-green-400 mr-3">{option.key}</span>
-              {option.value}
+              <span className="font-bold text-green-400 mr-3">{option}</span>
+              {getOptionLabel(option, question)}
             </button>
           ))}
         </div>
