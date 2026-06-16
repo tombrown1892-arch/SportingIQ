@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { BADGES } from '@/lib/badges'
 
 interface Profile {
   username: string
@@ -23,11 +24,17 @@ interface QuizResult {
   }
 }
 
+interface Badge {
+  badge_type: string
+  earned_at: string
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [results, setResults] = useState<QuizResult[]>([])
+  const [badges, setBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'stats' | 'rankings'>('stats')
+  const [activeTab, setActiveTab] = useState<'stats' | 'badges' | 'rankings'>('stats')
   const [todayRank, setTodayRank] = useState<number | null>(null)
   const [totalPlayers, setTotalPlayers] = useState<number>(0)
   const [weeklyRank, setWeeklyRank] = useState<number | null>(null)
@@ -72,6 +79,16 @@ export default function ProfilePage() {
       setResults(resultsData as any)
     }
 
+    const { data: badgesData } = await supabase
+      .from('badges')
+      .select('badge_type, earned_at')
+      .eq('user_id', user.id)
+      .order('earned_at', { ascending: false })
+
+    if (badgesData) {
+      setBadges(badgesData)
+    }
+
     if (profileData?.is_premium) {
       await loadRankings(user.id, profileData.username)
     }
@@ -80,7 +97,6 @@ export default function ProfilePage() {
   }
 
   const loadRankings = async (userId: string, username: string) => {
-    // Today's rank
     const today = new Date().toISOString().split('T')[0]
     const { data: todayQuiz } = await supabase
       .from('quizzes')
@@ -102,7 +118,6 @@ export default function ProfilePage() {
       }
     }
 
-    // Weekly rank
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     const { data: weeklyResults } = await supabase
@@ -116,7 +131,6 @@ export default function ProfilePage() {
       if (rank !== -1) setWeeklyRank(rank + 1)
     }
 
-    // Monthly rank
     const monthAgo = new Date()
     monthAgo.setDate(monthAgo.getDate() - 30)
     const { data: monthlyResults } = await supabase
@@ -130,7 +144,6 @@ export default function ProfilePage() {
       if (rank !== -1) setMonthlyRank(rank + 1)
     }
 
-    // All time rank
     const { data: alltimeResults } = await supabase
       .from('quiz_results')
       .select('user_id, total_points, profiles(username)')
@@ -163,13 +176,14 @@ export default function ProfilePage() {
     ? Math.max(...results.map(r => r.total_points))
     : 0
 
+  const allBadgeTypes = Object.values(BADGES)
+
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
       <div className="max-w-2xl mx-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="text-green-400 font-bold text-lg">SportingIQ</Link>
+          <h1 className="text-2xl font-bold">{profile?.username}</h1>
           <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition">
             Log out
           </button>
@@ -179,7 +193,6 @@ export default function ProfilePage() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold">{profile?.username}</h1>
               <p className="text-gray-400 text-sm mt-1">
                 Member since {new Date(profile?.created_at || '').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
               </p>
@@ -214,12 +227,20 @@ export default function ProfilePage() {
             My Stats
           </button>
           <button
+            onClick={() => setActiveTab('badges')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+              activeTab === 'badges' ? 'bg-green-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Badges {badges.length > 0 && `(${badges.length})`}
+          </button>
+          <button
             onClick={() => setActiveTab('rankings')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
               activeTab === 'rankings' ? 'bg-green-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'
             }`}
           >
-            My Rankings {!profile?.is_premium && '🔒'}
+            Rankings {!profile?.is_premium && '🔒'}
           </button>
         </div>
 
@@ -282,6 +303,42 @@ export default function ProfilePage() {
           </>
         )}
 
+        {/* Badges Tab */}
+        {activeTab === 'badges' && (
+          <div className="space-y-4">
+            <p className="text-gray-400 text-sm">{badges.length} of {allBadgeTypes.length} badges earned</p>
+            <div className="grid grid-cols-1 gap-3">
+              {allBadgeTypes.map((badge) => {
+                const earned = badges.find(b => b.badge_type === badge.id)
+                return (
+                  <div
+                    key={badge.id}
+                    className={`flex items-center gap-4 p-4 rounded-xl border ${
+                      earned
+                        ? 'bg-gray-900 border-gray-700'
+                        : 'bg-gray-900/50 border-gray-800 opacity-50'
+                    }`}
+                  >
+                    <div className="text-3xl">{badge.emoji}</div>
+                    <div className="flex-1">
+                      <div className={`font-semibold ${earned ? 'text-white' : 'text-gray-500'}`}>
+                        {badge.name}
+                      </div>
+                      <div className="text-gray-400 text-sm">{badge.description}</div>
+                      {earned && (
+                        <div className="text-green-400 text-xs mt-1">
+                          Earned {new Date(earned.earned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      )}
+                    </div>
+                    {earned && <div className="text-green-400">✓</div>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Rankings Tab */}
         {activeTab === 'rankings' && (
           <>
@@ -290,10 +347,7 @@ export default function ProfilePage() {
                 <div className="text-4xl mb-4">🏆</div>
                 <h3 className="text-xl font-bold mb-2">Premium Feature</h3>
                 <p className="text-gray-400 mb-6">Upgrade to see exactly where you rank against every player — today, this week, this month and all time.</p>
-                <Link
-                  href="/premium"
-                  className="inline-block px-8 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition"
-                >
+                <Link href="/premium" className="inline-block px-8 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition">
                   Go Premium — £2.99/month
                 </Link>
               </div>
@@ -339,7 +393,6 @@ export default function ProfilePage() {
             )}
           </>
         )}
-
       </div>
     </main>
   )

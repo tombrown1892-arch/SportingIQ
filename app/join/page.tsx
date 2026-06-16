@@ -90,7 +90,7 @@ function JoinContent() {
               </div>
             </div>
             <Link
-              href="/signup?plan=premium"
+              href="/premium"
               className="block w-full text-center py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition"
             >
               Go Premium

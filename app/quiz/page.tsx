@@ -1,4 +1,4 @@
-"use client"
+'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkAndAwardBadges } from '@/lib/badges'
@@ -200,7 +200,6 @@ export default function QuizPage() {
     setFinalTime(ft)
     setAnsweredQuestions(answeredQuestionsRef.current)
 
-    // Store guest result in localStorage for post-signup
     if (!user && quiz) {
       localStorage.setItem('guestQuizResult', JSON.stringify({
         quiz_id: quiz.id,
@@ -211,13 +210,23 @@ export default function QuizPage() {
     }
 
     if (user && quiz) {
-      await supabase.from('quiz_results').insert({
-        user_id: user.id,
-        quiz_id: quiz.id,
-        score: fs,
-        time_seconds: ft,
-        total_points: tp,
-      })
+      // Check if result already exists before inserting
+      const { data: existingResult } = await supabase
+        .from('quiz_results')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('quiz_id', quiz.id)
+        .single()
+
+      if (!existingResult) {
+        await supabase.from('quiz_results').insert({
+          user_id: user.id,
+          quiz_id: quiz.id,
+          score: fs,
+          time_seconds: ft,
+          total_points: tp,
+        })
+      }
 
       const today = new Date().toISOString().split('T')[0]
       const yesterday = new Date()
@@ -304,11 +313,7 @@ export default function QuizPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8 text-left space-y-4">
             <div className="flex items-center gap-3">
               <span className="text-2xl">❓</span>
-              <span className="text-gray-300">10 questions — answer before time runs out</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">⏱️</span>
-              <span className="text-gray-300">15 seconds per question — don't run out of time</span>
+              <span className="text-gray-300">10 questions — 15 seconds to answer each one</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-2xl">⚡</span>
@@ -393,13 +398,11 @@ export default function QuizPage() {
             <p className="text-gray-400">Here's how you did today</p>
           </div>
 
-          {/* Score - always visible */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6 text-center">
             <div className="text-6xl font-bold text-green-400 mb-2">{finalScore}/10</div>
             <p className="text-gray-400">Correct answers</p>
           </div>
 
-          {/* Guest - blurred stats */}
           {!user && (
             <div className="relative mb-6">
               <div className="blur-sm pointer-events-none space-y-4">
@@ -435,7 +438,6 @@ export default function QuizPage() {
             </div>
           )}
 
-          {/* Logged in user stats */}
           {user && (
             <>
               <div className="grid grid-cols-2 gap-4 mb-6">
