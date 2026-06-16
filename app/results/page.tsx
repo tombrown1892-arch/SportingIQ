@@ -4,6 +4,15 @@ import { supabase } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+interface AnsweredQuestion {
+  question: string
+  selected: string | null
+  correct: string
+  correctText: string
+  selectedText: string
+  isCorrect: boolean
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams()
   const score = parseInt(searchParams.get('score') || '0')
@@ -13,12 +22,24 @@ function ResultsContent() {
   const [totalPlayers, setTotalPlayers] = useState<number>(0)
   const [isPremium, setIsPremium] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [answerBreakdown, setAnswerBreakdown] = useState<AnsweredQuestion[]>([])
 
   useEffect(() => {
-    loadRank()
+    loadResults()
   }, [])
 
-  const loadRank = async () => {
+  const loadResults = async () => {
+    // Load answer breakdown from localStorage
+    const storedBreakdown = localStorage.getItem('guestAnswerBreakdown')
+    if (storedBreakdown) {
+      try {
+        setAnswerBreakdown(JSON.parse(storedBreakdown))
+        localStorage.removeItem('guestAnswerBreakdown')
+      } catch (e) {
+        console.error('Error parsing answer breakdown', e)
+      }
+    }
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
@@ -56,12 +77,14 @@ function ResultsContent() {
 
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-12">
-      <div className="max-w-md mx-auto text-center">
-        <div className="text-5xl mb-4">🏆</div>
-        <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-        <p className="text-gray-400 mb-8">Here's how you did today</p>
+      <div className="max-w-md mx-auto">
+        <div className="text-center mb-8">
+          <div className="text-5xl mb-4">🏆</div>
+          <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
+          <p className="text-gray-400">Here's how you did today</p>
+        </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6">
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 mb-6 text-center">
           <div className="text-6xl font-bold text-green-400 mb-2">{score}/10</div>
           <p className="text-gray-400 mb-6">Correct answers</p>
 
@@ -78,19 +101,41 @@ function ResultsContent() {
         </div>
 
         {!loading && isPremium && myRank && (
-          <div className="bg-green-900/20 border border-green-700 rounded-2xl p-6 mb-6">
+          <div className="bg-green-900/20 border border-green-700 rounded-2xl p-6 mb-6 text-center">
             <p className="text-green-400 text-sm font-medium mb-1">Your Current Rank</p>
             <div className="text-4xl font-bold">#{myRank}</div>
             <p className="text-gray-400 text-sm mt-1">out of {totalPlayers} players today</p>
+            <p className="text-gray-500 text-xs mt-1">Updates live as more people play</p>
           </div>
         )}
 
         {!loading && !isPremium && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 text-center">
             <p className="text-gray-400 text-sm mb-3">Want to see where you ranked today?</p>
             <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition">
               Upgrade to Premium — £2.99/mo
             </Link>
+          </div>
+        )}
+
+        {answerBreakdown.length > 0 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+            <h3 className="font-bold mb-4">Answer Breakdown</h3>
+            <div className="space-y-3">
+              {answerBreakdown.map((q, i) => (
+                <div key={i} className={`p-3 rounded-xl text-sm ${q.isCorrect ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
+                  <div className="font-medium mb-2">{q.question}</div>
+                  {q.isCorrect ? (
+                    <div className="text-green-400 text-xs">✓ Correct — {q.correctText}</div>
+                  ) : (
+                    <div className="text-xs space-y-1">
+                      <div className="text-red-400">✗ Your answer — {q.selectedText || 'No answer'}</div>
+                      <div className="text-green-400">✓ Correct — {q.correctText}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

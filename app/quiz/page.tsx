@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkAndAwardBadges } from '@/lib/badges'
@@ -207,10 +207,10 @@ export default function QuizPage() {
         time_seconds: ft,
         total_points: tp,
       }))
+      localStorage.setItem('guestAnswerBreakdown', JSON.stringify(answeredQuestionsRef.current))
     }
 
     if (user && quiz) {
-      // Check if result already exists before inserting
       const { data: existingResult } = await supabase
         .from('quiz_results')
         .select('id')
