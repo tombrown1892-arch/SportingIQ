@@ -1,4 +1,4 @@
- 'use client'
+'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { checkAndAwardBadges } from '@/lib/badges'
@@ -291,6 +291,19 @@ export default function QuizPage() {
     }, 1500)
   }
 
+  const handleShare = async () => {
+    const shareData = {
+      title: 'SportingIQ',
+      text: `I scored ${finalScore}/10 on today's SportingIQ football quiz! 🏆 Can you beat me?`,
+      url: 'https://sporting-iq.vercel.app/quiz',
+    }
+    if (navigator.share) {
+      await navigator.share(shareData)
+    } else {
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareData.text)}&url=${encodeURIComponent(shareData.url)}`, '_blank')
+    }
+  }
+
   if (gameState === 'loading') {
     return (
       <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
@@ -501,7 +514,7 @@ export default function QuizPage() {
             </>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 mb-4">
             <Link href="/leaderboard" className="flex-1 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition text-center">
               Leaderboard
             </Link>
@@ -509,6 +522,13 @@ export default function QuizPage() {
               {user ? 'My Profile' : 'Home'}
             </Link>
           </div>
+
+          <button
+            onClick={handleShare}
+            className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-xl transition"
+          >
+            📤 Share My Score
+          </button>
         </div>
       </main>
     )
