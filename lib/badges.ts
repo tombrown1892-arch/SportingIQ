@@ -20,7 +20,6 @@ export async function checkAndAwardBadges(userId: string, quizResult: {
 }) {
   const badgesToAward: string[] = []
 
-  // Get user profile
   const { data: profile } = await supabase
     .from('profiles')
     .select('streak, is_premium, created_at')
@@ -29,49 +28,36 @@ export async function checkAndAwardBadges(userId: string, quizResult: {
 
   if (!profile) return
 
-  // Get total quizzes played
   const { count: totalQuizzes } = await supabase
     .from('quiz_results')
     .select('id', { count: 'exact' })
     .eq('user_id', userId)
 
-  // Check streak badges
+  // Streak badges
   if (profile.streak >= 7) badgesToAward.push(BADGES.ON_FIRE.id)
   if (profile.streak >= 30) badgesToAward.push(BADGES.DIAMOND.id)
 
-  // Check perfect score
+  // Perfect score
   if (quizResult.score === 10) badgesToAward.push(BADGES.PERFECT.id)
 
-  // Check sharp shooter — under 45 seconds with 8+ correct
+  // Sharp shooter — under 45 seconds with 8+ correct
   if (quizResult.time_seconds <= 45 && quizResult.score >= 8) {
     badgesToAward.push(BADGES.SHARP_SHOOTER.id)
   }
 
-  // Check centurion
+  // Centurion
   if (totalQuizzes && totalQuizzes >= 100) badgesToAward.push(BADGES.CENTURION.id)
 
-  // Check premium member
+  // Premium member
   if (profile.is_premium) badgesToAward.push(BADGES.PREMIUM_MEMBER.id)
 
-  // Check founding member — signed up before September 2026
+  // Founding member — signed up before September 2026
   const signupDate = new Date(profile.created_at)
   const foundingCutoff = new Date('2026-09-01')
   if (signupDate < foundingCutoff) badgesToAward.push(BADGES.FOUNDING_MEMBER.id)
 
-  // Check leaderboard position
-  const { data: todayResults } = await supabase
-    .from('quiz_results')
-    .select('user_id, total_points')
-    .eq('quiz_id', quizResult.quiz_id)
-    .order('total_points', { ascending: false })
+  // Champion and Elite are awarded by the midnight cron job — not here
 
-  if (todayResults) {
-    const userRank = todayResults.findIndex(r => r.user_id === userId) + 1
-    if (userRank === 1) badgesToAward.push(BADGES.CHAMPION.id)
-    if (userRank <= 10) badgesToAward.push(BADGES.ELITE.id)
-  }
-
-  // Award all badges (ignore duplicates due to unique constraint)
   for (const badgeType of badgesToAward) {
     await supabase
       .from('badges')
