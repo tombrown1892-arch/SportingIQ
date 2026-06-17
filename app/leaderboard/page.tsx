@@ -87,7 +87,7 @@ export default function LeaderboardPage() {
       }))
       setEntries(formatted)
 
-      if (user && isPremium) {
+      if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('username')
@@ -118,7 +118,7 @@ export default function LeaderboardPage() {
         <h1 className="text-3xl font-bold mb-2">Leaderboard</h1>
         <p className="text-gray-400 mb-6">See how you stack up against other players</p>
 
-        {/* Tabs - all on one row */}
+        {/* Tabs */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
           {tabs.map((tab) => (
             <button
@@ -135,7 +135,7 @@ export default function LeaderboardPage() {
           ))}
         </div>
 
-        {/* My position pinned at top — premium only */}
+        {/* Premium — pinned rank with full position */}
         {isPremium && myEntry && myRank && myRank > 3 && (
           <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-6">
             <p className="text-green-400 text-sm font-medium mb-2">Your Position</p>
@@ -152,6 +152,29 @@ export default function LeaderboardPage() {
           </div>
         )}
 
+        {/* Free user — pinned but greyed out with upgrade prompt */}
+        {!isPremium && myEntry && myRank && myRank > 3 && (
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 opacity-60">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-4">
+                <div className="text-gray-600 font-bold w-8">##</div>
+                <div>
+                  <div className="font-semibold text-gray-400">{myEntry.username}</div>
+                  <div className="text-gray-600 text-sm">{myEntry.score}/10 correct • {myEntry.time_seconds}s</div>
+                </div>
+              </div>
+              <div className="text-gray-600 font-bold text-lg">??? pts</div>
+            </div>
+            <Link
+              href="/premium"
+              className="block w-full text-center py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition opacity-100"
+              style={{ opacity: 1 }}
+            >
+              Upgrade to Premium to see your rank
+            </Link>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center text-gray-400 py-12">Loading...</div>
         ) : entries.length === 0 ? (
@@ -164,7 +187,6 @@ export default function LeaderboardPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Top 3 always visible */}
             {entries.slice(0, 3).map((entry, index) => (
               <div
                 key={index}
@@ -187,7 +209,7 @@ export default function LeaderboardPage() {
               </div>
             ))}
 
-            {/* Premium unlock card — clean below top 3 */}
+            {/* Premium unlock card below top 3 */}
             {!isPremium && entries.length > 3 && (
               <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center mt-4">
                 <div className="text-3xl mb-3">🏆</div>
