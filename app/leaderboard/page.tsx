@@ -87,7 +87,7 @@ export default function LeaderboardPage() {
       }))
       setEntries(formatted)
 
-      if (user) {
+      if (user && isPremium) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('username')
@@ -135,8 +135,8 @@ export default function LeaderboardPage() {
           ))}
         </div>
 
-        {/* My position pinned at top */}
-        {myEntry && myRank && myRank > 3 && (
+        {/* My position pinned at top — premium only */}
+        {isPremium && myEntry && myRank && myRank > 3 && (
           <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-6">
             <p className="text-green-400 text-sm font-medium mb-2">Your Position</p>
             <div className="flex items-center justify-between">
