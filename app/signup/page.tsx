@@ -1,5 +1,5 @@
 'use client'
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -8,16 +8,59 @@ import { checkAndAwardBadges } from '@/lib/badges'
 function SignUpContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const plan = searchParams.get('plan')
 
+  useEffect(() => {
+    if (!username || username.length < 3) {
+      setUsernameStatus('idle')
+      return
+    }
+
+    setUsernameStatus('checking')
+    const timer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single()
+
+      setUsernameStatus(data ? 'taken' : 'available')
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [username])
+
   const handleSignUp = async () => {
-    setLoading(true)
     setMessage('')
+
+    if (usernameStatus === 'taken') {
+      setMessage('That username is already taken. Please choose another.')
+      return
+    }
+
+    if (usernameStatus !== 'available') {
+      setMessage('Please enter a valid username.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setMessage('Passwords do not match.')
+      return
+    }
+
+    if (password.length < 6) {
+      setMessage('Password must be at least 6 characters.')
+      return
+    }
+
+    setLoading(true)
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -43,11 +86,7 @@ function SignUpContent() {
       .upsert({ id: data.user.id, username }, { onConflict: 'id' })
 
     if (profileError) {
-      if (profileError.message.includes('unique constraint') || profileError.message.includes('profiles_username_key')) {
-        setMessage('That username is already taken. Please choose another.')
-      } else {
-        setMessage(profileError.message)
-      }
+      setMessage(profileError.message)
       setLoading(false)
       return
     }
@@ -63,10 +102,12 @@ function SignUpContent() {
       return
     }
 
+    // Award founding member badge
     await supabase
       .from('badges')
       .upsert({ user_id: data.user.id, badge_type: 'founding_member' }, { onConflict: 'user_id,badge_type' })
 
+    // Save guest quiz result if exists
     const guestResult = localStorage.getItem('guestQuizResult')
     if (guestResult) {
       try {
@@ -135,14 +176,32 @@ function SignUpContent() {
           <div className="space-y-4">
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500"
-                placeholder="sportsfan123"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 pr-10"
+                  placeholder="sportsfan123"
+                />
+                {usernameStatus === 'checking' && (
+                  <span className="absolute right-3 top-3.5 text-gray-400 text-sm">...</span>
+                )}
+                {usernameStatus === 'available' && (
+                  <span className="absolute right-3 top-3.5 text-green-400">✓</span>
+                )}
+                {usernameStatus === 'taken' && (
+                  <span className="absolute right-3 top-3.5 text-red-400">✗</span>
+                )}
+              </div>
+              {usernameStatus === 'taken' && (
+                <p className="text-red-400 text-xs mt-1">Username already taken</p>
+              )}
+              {usernameStatus === 'available' && (
+                <p className="text-green-400 text-xs mt-1">Username available</p>
+              )}
             </div>
+
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Email</label>
               <input
@@ -153,6 +212,7 @@ function SignUpContent() {
                 placeholder="you@example.com"
               />
             </div>
+
             <div>
               <label className="text-sm text-gray-400 mb-1 block">Password</label>
               <input
@@ -164,13 +224,30 @@ function SignUpContent() {
               />
             </div>
 
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Confirm Password</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500"
+                placeholder="••••••••"
+              />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+              )}
+              {confirmPassword && password === confirmPassword && confirmPassword.length > 0 && (
+                <p className="text-green-400 text-xs mt-1">Passwords match</p>
+              )}
+            </div>
+
             {message && (
               <p className="text-sm text-red-400">{message}</p>
             )}
 
             <button
               onClick={handleSignUp}
-              disabled={loading}
+              disabled={loading || usernameStatus === 'taken' || usernameStatus === 'checking'}
               className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-3 rounded-lg transition disabled:opacity-50"
             >
               {loading ? 'Creating account...' : plan === 'premium' ? 'Create Account & Go Premium' : 'Create Free Account'}
