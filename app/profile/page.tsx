@@ -191,7 +191,6 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Profile header */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -218,7 +217,6 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab('stats')}
@@ -246,7 +244,6 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        {/* Stats Tab */}
         {activeTab === 'stats' && (
           <>
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -315,7 +312,6 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Badges Tab */}
         {activeTab === 'badges' && (
           <div className="space-y-4">
             <p className="text-gray-400 text-sm">{badges.length} of {allBadgeTypes.length} badges earned</p>
@@ -326,9 +322,7 @@ export default function ProfilePage() {
                   <div
                     key={badge.id}
                     className={`flex items-center gap-4 p-4 rounded-xl border ${
-                      earned
-                        ? 'bg-gray-900 border-gray-700'
-                        : 'bg-gray-900/50 border-gray-800 opacity-50'
+                      earned ? 'bg-gray-900 border-gray-700' : 'bg-gray-900/50 border-gray-800 opacity-50'
                     }`}
                   >
                     <div className="text-3xl">{badge.emoji}</div>
@@ -351,7 +345,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Rankings Tab */}
         {activeTab === 'rankings' && (
           <>
             {!profile?.is_premium ? (
@@ -366,7 +359,7 @@ export default function ProfilePage() {
             ) : (
               <div className="space-y-4">
                 <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-                  <h3 className="text-green-400 font-semibold text-sm mb-4">TODAY'S QUIZ</h3>
+                  <h3 className="text-green-400 font-semibold text-sm mb-4">TODAY</h3>
                   {todayRank ? (
                     <div className="flex items-center justify-between">
                       <div>
@@ -379,7 +372,7 @@ export default function ProfilePage() {
                     </div>
                   ) : (
                     <div className="text-gray-400">
-                      <p>You haven't played today's quiz yet.</p>
+                      <p>You have not played today yet.</p>
                       <Link href="/quiz" className="inline-block mt-3 px-4 py-2 bg-green-500 text-black font-bold rounded-lg text-sm">
                         Play Now
                       </Link>
@@ -402,10 +395,9 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Cancel membership — tucked away */}
-                <div className="pt-8 border-t border-gray-800 mt-8">
-                  
-                    href="https://billing.stripe.com/p/login/test_your_portal_link"
+                <div className="pt-6 border-t border-gray-800 text-center">
+                  <a
+                    href="https://billing.stripe.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-gray-600 hover:text-gray-400 transition"
