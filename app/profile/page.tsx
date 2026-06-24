@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const [badges, setBadges] = useState<Badge[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'stats' | 'badges' | 'rankings'>('stats')
+  const [showAllHistory, setShowAllHistory] = useState(false)
   const [todayRank, setTodayRank] = useState<number | null>(null)
   const [totalPlayers, setTotalPlayers] = useState<number>(0)
   const [weeklyRank, setWeeklyRank] = useState<number | null>(null)
@@ -73,7 +74,7 @@ export default function ProfilePage() {
       `)
       .eq('user_id', user.id)
       .order('completed_at', { ascending: false })
-      .limit(20)
+      .limit(50)
 
     if (resultsData) {
       setResults(resultsData as any)
@@ -177,6 +178,7 @@ export default function ProfilePage() {
     : 0
 
   const allBadgeTypes = Object.values(BADGES)
+  const visibleResults = showAllHistory ? results : results.slice(0, 5)
 
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
@@ -280,24 +282,34 @@ export default function ProfilePage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {results.map((result, index) => (
-                    <div key={index} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
-                      <div>
-                        <div className="font-medium text-sm">{result.quizzes?.title || 'Daily Quiz'}</div>
-                        <div className="text-gray-400 text-xs mt-1">
-                          {new Date(result.completed_at).toLocaleDateString('en-GB', {
-                            day: 'numeric', month: 'short', year: 'numeric'
-                          })}
+                <>
+                  <div className="space-y-3">
+                    {visibleResults.map((result, index) => (
+                      <div key={index} className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
+                        <div>
+                          <div className="font-medium text-sm">{result.quizzes?.title || 'Daily Quiz'}</div>
+                          <div className="text-gray-400 text-xs mt-1">
+                            {new Date(result.completed_at).toLocaleDateString('en-GB', {
+                              day: 'numeric', month: 'short', year: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-green-400">{result.score}/10</div>
+                          <div className="text-gray-400 text-xs">{result.total_points} pts</div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-green-400">{result.score}/10</div>
-                        <div className="text-gray-400 text-xs">{result.total_points} pts</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                  {results.length > 5 && (
+                    <button
+                      onClick={() => setShowAllHistory(!showAllHistory)}
+                      className="w-full mt-4 py-2 text-sm text-green-400 hover:text-green-300 transition"
+                    >
+                      {showAllHistory ? 'Show less ↑' : `Show all ${results.length} quizzes ↓`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </>
@@ -388,6 +400,18 @@ export default function ProfilePage() {
                     <div className="text-2xl font-bold text-green-400">{alltimeRank ? `#${alltimeRank}` : '-'}</div>
                     <div className="text-gray-400 text-sm mt-1">All Time</div>
                   </div>
+                </div>
+
+                {/* Cancel membership — tucked away */}
+                <div className="pt-8 border-t border-gray-800 mt-8">
+                  
+                    href="https://billing.stripe.com/p/login/test_your_portal_link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-600 hover:text-gray-400 transition"
+                  >
+                    Manage or cancel subscription
+                  </a>
                 </div>
               </div>
             )}
