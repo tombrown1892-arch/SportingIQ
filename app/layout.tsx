@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'SportingIQ',
-  description: 'Test your sporting knowledge',
+  title: 'FootyGames',
+  description: 'Football quizzes and games — test your football knowledge daily',
 }
 
 export default function RootLayout({

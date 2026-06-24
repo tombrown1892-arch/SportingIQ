@@ -76,9 +76,9 @@ function ResultsContent() {
 
   const handleShare = async () => {
     const shareData = {
-      title: 'SportingIQ',
-      text: `I scored ${score}/10 on today's SportingIQ football quiz! 🏆 Can you beat me?`,
-      url: 'https://sporting-iq.vercel.app/quiz',
+      title: 'FootyGames',
+      text: `I scored ${score}/10 on today's FootyGames football quiz! 🏆 Can you beat me?`,
+      url: 'https://footygames.vercel.app/quiz',
     }
     if (navigator.share) {
       await navigator.share(shareData)

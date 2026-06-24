@@ -54,7 +54,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 px-6 py-8 text-center text-gray-500 text-sm">
-        © 2026 SportingIQ. All rights reserved.
+        © 2026 FootyGames. All rights reserved.
       </footer>
     </main>
   )

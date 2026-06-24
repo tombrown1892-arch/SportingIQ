@@ -72,7 +72,7 @@ export default function PremiumPage() {
         <div className="text-center">
           <div className="text-5xl mb-4">⭐</div>
           <h2 className="text-2xl font-bold mb-2">You're already Premium!</h2>
-          <p className="text-gray-400 mb-6">Enjoy full access to all SportingIQ features.</p>
+          <p className="text-gray-400 mb-6">Enjoy full access to all FootyGames features.</p>
           <Link href="/profile" className="px-6 py-2 bg-green-500 text-black font-bold rounded-lg">
             View Profile
           </Link>
@@ -86,9 +86,9 @@ export default function PremiumPage() {
       <div className="max-w-3xl mx-auto">
 
         <div className="text-center mb-12">
-          <Link href="/" className="text-green-400 font-bold text-xl">SportingIQ</Link>
+          <Link href="/" className="text-green-400 font-bold text-xl">FootyGames</Link>
           <h2 className="text-4xl font-bold mt-6 mb-4">Go Premium</h2>
-          <p className="text-gray-400 text-lg">Unlock the full SportingIQ experience</p>
+          <p className="text-gray-400 text-lg">Unlock the full FootyGames experience</p>
         </div>
 
         {/* Features list */}

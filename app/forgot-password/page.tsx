@@ -48,7 +48,7 @@ export default function ForgotPassword() {
 			<div className="w-full max-w-md">
 				<div className="text-center mb-8">
 					<Link href="/">
-						<h1 className="text-3xl font-bold text-green-400">SportingIQ</h1>
+						<h1 className="text-3xl font-bold text-green-400">FootyGames</h1>
 					</Link>
 					<p className="text-gray-400 mt-2">Reset your password</p>
 				</div>

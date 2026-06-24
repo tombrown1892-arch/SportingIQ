@@ -43,7 +43,7 @@ export default function SuccessPage() {
       <div className="text-center">
         <div className="text-6xl mb-6">🎉</div>
         <h2 className="text-3xl font-bold mb-3">Welcome to Premium!</h2>
-        <p className="text-gray-400 mb-4">You now have full access to all SportingIQ features.</p>
+        <p className="text-gray-400 mb-4">You now have full access to all FootyGames features.</p>
         <div className="bg-yellow-900/20 border border-yellow-700 rounded-xl p-4 mb-8 inline-block">
           <p className="text-yellow-400 font-bold">⭐ Premium Member badge awarded!</p>
         </div>

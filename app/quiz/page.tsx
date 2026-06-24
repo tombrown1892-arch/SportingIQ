@@ -293,9 +293,9 @@ export default function QuizPage() {
 
   const handleShare = async () => {
     const shareData = {
-      title: 'SportingIQ',
-      text: `I scored ${finalScore}/10 on today's SportingIQ football quiz! 🏆 Can you beat me?`,
-      url: 'https://sporting-iq.vercel.app/quiz',
+      title: 'FootyGames',
+      text: `I scored ${finalScore}/10 on today's FootyGames football quiz! 🏆 Can you beat me?`,
+      url: 'https://footygames.vercel.app/quiz',
     }
     if (navigator.share) {
       await navigator.share(shareData)
@@ -541,7 +541,7 @@ export default function QuizPage() {
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="text-green-400 font-bold text-lg">SportingIQ</Link>
+          <Link href="/" className="text-green-400 font-bold text-lg">FootyGames</Link>
           <div className="text-gray-400 text-sm">{currentQuestion + 1} / {questions.length}</div>
         </div>
 
