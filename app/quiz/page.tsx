@@ -135,6 +135,14 @@ export default function QuizPage() {
       }
     }
 
+    if (!user) {
+      const guestLastPlayed = localStorage.getItem('guestLastPlayed')
+      if (guestLastPlayed === today) {
+        setGameState('already-played')
+        return
+      }
+    }
+
     const { data: questionsData } = await supabase
       .from('questions')
       .select('*')
@@ -208,6 +216,7 @@ export default function QuizPage() {
         total_points: tp,
       }))
       localStorage.setItem('guestAnswerBreakdown', JSON.stringify(answeredQuestionsRef.current))
+      localStorage.setItem('guestLastPlayed', new Date().toISOString().split('T')[0])
     }
 
     if (user && quiz) {
