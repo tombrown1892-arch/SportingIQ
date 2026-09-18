@@ -33,7 +33,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="border-b border-gray-800 px-6 py-4 bg-gray-950">
+    <nav className="px-6 py-4 bg-gray-950">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         <Link href="/" className="text-xl font-bold text-green-400">
           FootyGames
