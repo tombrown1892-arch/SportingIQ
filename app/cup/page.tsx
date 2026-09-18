@@ -1173,13 +1173,6 @@ export default function CupPage() {
               {gameState === 'shootout' ? '🥅 PENALTY SHOOTOUT' : `⏱️ ${matchMinute}'`}
             </span>
           </div>
-
-          <div className="w-full bg-gray-800 rounded-full h-1.5 mt-3">
-            <div
-              className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${((roundIndex + 1) / ROUNDS.length) * 100}%` }}
-            />
-          </div>
         </div>
 
         {gameState === 'shootout' && (
