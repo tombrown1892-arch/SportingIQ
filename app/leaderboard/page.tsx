@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import CupLeaderboard from '@/app/components/CupLeaderboard'
 
 interface LeaderboardEntry {
   username: string
@@ -15,6 +16,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [isPremium, setIsPremium] = useState(false)
+  const [gameTab, setGameTab] = useState<'quiz' | 'cup'>('quiz')
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'alltime'>('daily')
   const [myRank, setMyRank] = useState<number | null>(null)
   const [myEntry, setMyEntry] = useState<LeaderboardEntry | null>(null)
@@ -118,6 +120,34 @@ export default function LeaderboardPage() {
         <h1 className="text-3xl font-bold mb-2">Leaderboard</h1>
         <p className="text-gray-400 mb-6">See how you stack up against other players</p>
 
+        {/* Game tabs */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setGameTab('quiz')}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition ${
+              gameTab === 'quiz'
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Daily Quiz
+          </button>
+          <button
+            onClick={() => setGameTab('cup')}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition ${
+              gameTab === 'cup'
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Cup Game
+          </button>
+        </div>
+
+        {gameTab === 'cup' && <CupLeaderboard />}
+
+        {gameTab === 'quiz' && (
+        <>
         {/* Tabs */}
         <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
           {tabs.map((tab) => (
@@ -238,6 +268,8 @@ export default function LeaderboardPage() {
               </div>
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
     </main>

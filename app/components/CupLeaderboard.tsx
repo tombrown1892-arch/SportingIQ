@@ -1,0 +1,177 @@
+'use client'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+
+interface CupEntry {
+  userId: string
+  username: string
+  gamesPlayed: number
+  wins: number
+  goals: number
+  winRate: number
+}
+
+type Metric = 'wins' | 'winrate' | 'goals'
+
+export default function CupLeaderboard() {
+  const [entries, setEntries] = useState<CupEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isPremium, setIsPremium] = useState(false)
+  const [metric, setMetric] = useState<Metric>('wins')
+
+  useEffect(() => {
+    loadPremiumStatus()
+    loadCupResults()
+  }, [])
+
+  const loadPremiumStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_premium')
+        .eq('id', user.id)
+        .single()
+      setIsPremium(profile?.is_premium || false)
+    }
+  }
+
+  const loadCupResults = async () => {
+    setLoading(true)
+
+    const { data } = await supabase
+      .from('cup_results')
+      .select('user_id, won_cup, goals_scored, profiles (username)')
+
+    if (data) {
+      const byUser = new Map<string, CupEntry>()
+
+      data.forEach((row: any) => {
+        const uid = row.user_id
+        const existing = byUser.get(uid) || {
+          userId: uid,
+          username: row.profiles?.username || 'Anonymous',
+          gamesPlayed: 0,
+          wins: 0,
+          goals: 0,
+          winRate: 0,
+        }
+        existing.gamesPlayed += 1
+        if (row.won_cup) existing.wins += 1
+        existing.goals += row.goals_scored || 0
+        byUser.set(uid, existing)
+      })
+
+      const aggregated = Array.from(byUser.values()).map(e => ({
+        ...e,
+        winRate: e.gamesPlayed > 0 ? e.wins / e.gamesPlayed : 0,
+      }))
+
+      setEntries(aggregated)
+    }
+
+    setLoading(false)
+  }
+
+  const sortedEntries = [...entries].sort((a, b) => {
+    if (metric === 'wins') return b.wins - a.wins
+    if (metric === 'goals') return b.goals - a.goals
+    return b.winRate - a.winRate || b.wins - a.wins
+  })
+
+  const metrics: { key: Metric, label: string }[] = [
+    { key: 'wins', label: 'Most Wins' },
+    { key: 'winrate', label: 'Best Win Rate' },
+    { key: 'goals', label: 'Most Goals' },
+  ]
+
+  const valueFor = (entry: CupEntry) => {
+    if (metric === 'wins') return `${entry.wins} 🏆`
+    if (metric === 'goals') return `${entry.goals} ⚽`
+    return `${Math.round(entry.winRate * 100)}%`
+  }
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        {metrics.map((m) => (
+          <button
+            key={m.key}
+            onClick={() => setMetric(m.key)}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0 ${
+              metric === m.key
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-center text-gray-400 py-12">Loading...</div>
+      ) : sortedEntries.length === 0 ? (
+        <div className="text-center text-gray-400 py-12">
+          <div className="text-4xl mb-4">🏆</div>
+          <p>No cup results yet. Be the first!</p>
+          <Link href="/cup" className="inline-block mt-4 px-6 py-2 bg-green-500 text-black font-bold rounded-lg">
+            Start a Cup Run
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedEntries.slice(0, 3).map((entry, index) => (
+            <div
+              key={entry.userId}
+              className={`flex items-center justify-between p-4 rounded-xl border ${
+                index === 0 ? 'bg-yellow-900/20 border-yellow-700' :
+                index === 1 ? 'bg-gray-700/20 border-gray-600' :
+                'bg-orange-900/20 border-orange-800'
+              }`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="text-2xl font-bold w-8">
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                </div>
+                <div>
+                  <div className="font-semibold">{entry.username}</div>
+                  <div className="text-gray-400 text-sm">{entry.gamesPlayed} cup{entry.gamesPlayed === 1 ? '' : 's'} played</div>
+                </div>
+              </div>
+              <div className="text-green-400 font-bold text-lg">{valueFor(entry)}</div>
+            </div>
+          ))}
+
+          {!isPremium && sortedEntries.length > 3 && (
+            <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center mt-4">
+              <div className="text-3xl mb-3">🏆</div>
+              <p className="font-bold mb-1">See the Full Cup Leaderboard</p>
+              <p className="text-gray-400 text-sm mb-4">Upgrade to Premium to see every player ranked</p>
+              <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
+                Go Premium — £2.99/mo
+              </Link>
+            </div>
+          )}
+
+          {isPremium && sortedEntries.slice(3).map((entry, index) => (
+            <div
+              key={entry.userId}
+              className="flex items-center justify-between p-4 rounded-xl border bg-gray-900 border-gray-800"
+            >
+              <div className="flex items-center gap-4">
+                <div className="text-gray-500 font-bold w-8">{index + 4}</div>
+                <div>
+                  <div className="font-semibold">{entry.username}</div>
+                  <div className="text-gray-400 text-sm">{entry.gamesPlayed} cup{entry.gamesPlayed === 1 ? '' : 's'} played</div>
+                </div>
+              </div>
+              <div className="text-green-400 font-bold text-lg">{valueFor(entry)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

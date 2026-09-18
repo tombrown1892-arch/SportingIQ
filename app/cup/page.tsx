@@ -708,6 +708,7 @@ export default function CupPage() {
         quiz_id: quiz?.id ?? null,
         rounds_won: roundsWon,
         won_cup: won,
+        goals_scored: totalGoalsScoredRef.current,
       })
     } else {
       const raw = localStorage.getItem('cupGuestStats')

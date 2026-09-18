@@ -39,30 +39,9 @@ export default function Navbar() {
           FootyGames
         </Link>
 
-        {/* Desktop menu */}
-        <div className="hidden md:flex items-center gap-4">
-          <Link href="/quiz" className="text-sm text-gray-300 hover:text-white transition">Quiz</Link>
-          <Link href="/leaderboard" className="text-sm text-gray-300 hover:text-white transition">Leaderboard</Link>
-          {!loading && (
-            <>
-              {user ? (
-                <>
-                  <Link href="/profile" className="text-sm text-gray-300 hover:text-white transition">Profile</Link>
-                  <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-white transition">Log out</button>
-                </>
-              ) : (
-                <>
-                  <Link href="/login" className="text-sm text-gray-300 hover:text-white transition">Login</Link>
-                  <Link href="/signup" className="px-4 py-2 text-sm bg-green-500 hover:bg-green-400 text-black font-semibold rounded-lg transition">Sign Up Free</Link>
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Mobile hamburger */}
+        {/* Hamburger */}
         <button
-          className="md:hidden text-gray-300 hover:text-white"
+          className="text-gray-300 hover:text-white"
           onClick={() => setMenuOpen(!menuOpen)}
         >
           {menuOpen ? (
@@ -77,10 +56,12 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile menu dropdown */}
+      {/* Menu dropdown */}
       {menuOpen && (
-        <div className="md:hidden mt-4 pb-4 border-t border-gray-800 pt-4 space-y-3">
-          <Link href="/quiz" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-300 hover:text-white transition py-2">Quiz</Link>
+        <div className="max-w-4xl mx-auto mt-4 pb-4 border-t border-gray-800 pt-4 space-y-3">
+          <Link href="/" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-300 hover:text-white transition py-2">Home</Link>
+          <Link href="/quiz" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-300 hover:text-white transition py-2">Daily Quiz</Link>
+          <Link href="/cup" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-300 hover:text-white transition py-2">Cup Game</Link>
           <Link href="/leaderboard" onClick={() => setMenuOpen(false)} className="block text-sm text-gray-300 hover:text-white transition py-2">Leaderboard</Link>
           {!loading && (
             <>
