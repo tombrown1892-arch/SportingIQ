@@ -13,13 +13,13 @@ interface CupEntry {
 }
 
 type Metric = 'wins' | 'winrate' | 'goals'
-type TimePeriod = 'alltime' | 'weekly' | 'daily'
+type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'alltime'
 
 export default function CupLeaderboard() {
   const [entries, setEntries] = useState<CupEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [metric, setMetric] = useState<Metric>('wins')
-  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime')
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('daily')
 
   useEffect(() => {
     loadCupResults()
@@ -32,14 +32,18 @@ export default function CupLeaderboard() {
       .from('cup_results')
       .select('user_id, won, goals_scored')
 
-    if (timePeriod === 'weekly') {
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      query = query.gte('created_at', weekAgo.toISOString())
-    } else if (timePeriod === 'daily') {
+    if (timePeriod === 'daily') {
       const startOfToday = new Date()
       startOfToday.setHours(0, 0, 0, 0)
       query = query.gte('created_at', startOfToday.toISOString())
+    } else if (timePeriod === 'weekly') {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      query = query.gte('created_at', weekAgo.toISOString())
+    } else if (timePeriod === 'monthly') {
+      const monthAgo = new Date()
+      monthAgo.setDate(monthAgo.getDate() - 30)
+      query = query.gte('created_at', monthAgo.toISOString())
     }
 
     const { data, error } = await query
@@ -108,9 +112,10 @@ export default function CupLeaderboard() {
   ]
 
   const timePeriods: { key: TimePeriod, label: string }[] = [
-    { key: 'alltime', label: 'All Time' },
-    { key: 'weekly', label: 'This Week' },
     { key: 'daily', label: 'Today' },
+    { key: 'weekly', label: 'This Week' },
+    { key: 'monthly', label: 'This Month' },
+    { key: 'alltime', label: 'All Time' },
   ]
 
   const valueFor = (entry: CupEntry) => {
