@@ -47,13 +47,20 @@ interface CommentaryLine {
   badge: string
 }
 
-interface Fixture {
+interface ParallelFixture {
   home: string
   away: string
   htHome: number
   htAway: number
   ftHome: number
   ftAway: number
+}
+
+interface ParallelBracket {
+  round1: ParallelFixture
+  round2: ParallelFixture
+  quarterFinal: ParallelFixture
+  semiFinal: ParallelFixture
 }
 
 interface HalfTimeStats {
@@ -224,21 +231,61 @@ function buildGeneralMinutes(eventMinutes: number[]): number[] {
   return minutes.sort((a, b) => a - b)
 }
 
-function randomFixtureCount(): number {
-  return 3 + Math.floor(Math.random() * 2) // 3-4
+// A single "elsewhere" fixture drawn from a pool. `forceDecisive` guarantees a
+// non-drawn full-time score, needed for the parallel Semi Final since its
+// winner becomes the player's Final opponent.
+function generateParallelFixture(pool: string[], forceDecisive: boolean = false): ParallelFixture {
+  const [home, away] = shuffle(pool)
+  const htHome = Math.floor(Math.random() * 2) // 0-1
+  const htAway = Math.floor(Math.random() * 2) // 0-1
+  let ftHome = htHome + Math.floor(Math.random() * 2) // +0-1 in the second half
+  let ftAway = htAway + Math.floor(Math.random() * 2) // +0-1 in the second half
+
+  if (forceDecisive && ftHome === ftAway) {
+    if (Math.random() < 0.5) {
+      ftHome += 1
+    } else {
+      ftAway += 1
+    }
+  }
+
+  return { home, away, htHome, htAway, ftHome, ftAway }
 }
 
-function generateFixtures(pool: string[], exclude: string, count: number): Fixture[] {
-  const candidates = shuffle(pool.filter(t => t !== exclude))
-  const fixtures: Fixture[] = []
-  for (let i = 0; i + 1 < candidates.length && fixtures.length < count; i += 2) {
-    const htHome = Math.floor(Math.random() * 2) // 0-1
-    const htAway = Math.floor(Math.random() * 2) // 0-1
-    const ftHome = htHome + Math.floor(Math.random() * 2) // +0-1 in the second half
-    const ftAway = htAway + Math.floor(Math.random() * 2) // +0-1 in the second half
-    fixtures.push({ home: candidates[i], away: candidates[i + 1], htHome, htAway, ftHome, ftAway })
+// Generates the entire "other side of the draw" once, at the start of the cup
+// run, so every round's elsewhere-fixture and the Final opponent are all
+// consistent and pre-determined from the outset.
+function generateParallelBracket(): ParallelBracket {
+  return {
+    round1: generateParallelFixture(LEAGUE_ONE_TWO),
+    round2: generateParallelFixture(CHAMPIONSHIP),
+    quarterFinal: generateParallelFixture(LOWER_PL),
+    semiFinal: generateParallelFixture(MID_PL, true),
   }
-  return fixtures
+}
+
+// The team that wins the parallel Semi Final becomes the player's Final opponent.
+function getOtherFinalist(bracket: ParallelBracket | null): { team: string, winnerScore: number, loserScore: number } | null {
+  if (!bracket) return null
+  const sf = bracket.semiFinal
+  const homeWon = sf.ftHome > sf.ftAway
+  return {
+    team: homeWon ? sf.home : sf.away,
+    winnerScore: homeWon ? sf.ftHome : sf.ftAway,
+    loserScore: homeWon ? sf.ftAway : sf.ftHome,
+  }
+}
+
+// The pre-generated "elsewhere" fixture for a given round index. The Final (idx 4) has none.
+function getOtherFixtureForRound(bracket: ParallelBracket | null, idx: number): ParallelFixture | null {
+  if (!bracket) return null
+  switch (idx) {
+    case 0: return bracket.round1
+    case 1: return bracket.round2
+    case 2: return bracket.quarterFinal
+    case 3: return bracket.semiFinal
+    default: return null
+  }
 }
 
 function randomPossession(roundIdx: number): number {
@@ -300,7 +347,7 @@ export default function CupPage() {
   const usedGeneralRef = useRef<string[]>([])
   const [resultBanner, setResultBanner] = useState<string | null>(null)
   const [guestStats, setGuestStats] = useState<{ gamesPlayed: number, cupsWon: number, bestRound: number } | null>(null)
-  const [fixtures, setFixtures] = useState<Fixture[]>([])
+  const parallelBracketRef = useRef<ParallelBracket | null>(null)
   const [wonOnPens, setWonOnPens] = useState(false)
   const [halfTimeStats, setHalfTimeStats] = useState<HalfTimeStats | null>(null)
   const playerShotsRef = useRef(0)
@@ -456,10 +503,11 @@ export default function CupPage() {
 
   const prepareRound = (idx: number) => {
     const round = ROUNDS[idx]
-    const opp = pickOpponent(round.pool)
+    const isFinal = idx === ROUNDS.length - 1
+    const finalist = isFinal ? getOtherFinalist(parallelBracketRef.current) : null
+    const opp = finalist ? finalist.team : pickOpponent(round.pool)
     opponentRef.current = opp
     setOpponent(opp)
-    setFixtures(generateFixtures(round.pool, opp, randomFixtureCount()))
     setWonOnPens(false)
     setGameState('pre-match')
   }
@@ -755,6 +803,7 @@ export default function CupPage() {
     totalGoalsConcededRef.current = 0
     correctAnswersRef.current = 0
     incorrectAnswersRef.current = 0
+    parallelBracketRef.current = generateParallelBracket()
     prepareRound(0)
   }
 
@@ -775,28 +824,46 @@ export default function CupPage() {
 
   const currentRound = ROUNDS[roundIndex]
 
-  const renderFixtures = (mode: 'pending' | 'ht' | 'ft') => (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-      <div className="text-xs text-gray-400 uppercase tracking-wide mb-3 text-center">
-        {mode === 'pending'
-          ? `Elsewhere in ${currentRound.name}`
-          : mode === 'ht'
-          ? `Elsewhere in ${currentRound.name} — Half Time`
-          : `Elsewhere in ${currentRound.name} — Full Time`}
+  const isFinalRound = roundIndex === ROUNDS.length - 1
+
+  const renderOtherFixture = (mode: 'pending' | 'ht' | 'ft') => {
+    const fixture = getOtherFixtureForRound(parallelBracketRef.current, roundIndex)
+    if (!fixture) return null
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+        <div className="text-xs text-gray-400 uppercase tracking-wide mb-3 text-center">
+          {mode === 'pending'
+            ? `Elsewhere in ${currentRound.name}`
+            : mode === 'ht'
+            ? `Elsewhere in ${currentRound.name} — Half Time`
+            : `Elsewhere in ${currentRound.name} — Full Time`}
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+          <span className="text-right truncate text-gray-300">{fixture.home}</span>
+          <span className="text-gray-500 font-bold text-xs">
+            {mode === 'pending' ? 'vs' : mode === 'ht' ? `${fixture.htHome}-${fixture.htAway}` : `${fixture.ftHome}-${fixture.ftAway}`}
+          </span>
+          <span className="text-left truncate text-gray-300">{fixture.away}</span>
+        </div>
       </div>
-      <div className="space-y-2">
-        {fixtures.map((f, i) => (
-          <div key={i} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
-            <span className="text-right truncate text-gray-300">{f.home}</span>
-            <span className="text-gray-500 font-bold text-xs">
-              {mode === 'pending' ? 'vs' : mode === 'ht' ? `${f.htHome}-${f.htAway}` : `${f.ftHome}-${f.ftAway}`}
-            </span>
-            <span className="text-left truncate text-gray-300">{f.away}</span>
-          </div>
-        ))}
+    )
+  }
+
+  const renderFinalOpponentInfo = () => {
+    const finalist = getOtherFinalist(parallelBracketRef.current)
+    if (!finalist) return null
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center">
+        <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">The Other Finalist</div>
+        <p className="text-gray-300 text-sm">
+          The other finalist is <span className="font-semibold text-white">{finalist.team}</span>.
+        </p>
+        <p className="text-gray-500 text-xs mt-1">
+          Your opponent today won their Semi Final {finalist.winnerScore}-{finalist.loserScore}.
+        </p>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderEndStats = (won: boolean) => (
     <div className="grid grid-cols-2 gap-3 mb-6">
@@ -961,7 +1028,7 @@ export default function CupPage() {
             <p className="text-gray-400 text-sm">Round {roundIndex + 1} of {ROUNDS.length}</p>
           </div>
 
-          <div className="mb-6">{renderFixtures('pending')}</div>
+          <div className="mb-6">{isFinalRound ? renderFinalOpponentInfo() : renderOtherFixture('pending')}</div>
 
           <button
             onClick={startMatch}
@@ -999,7 +1066,7 @@ export default function CupPage() {
             <p className="text-green-400 font-medium mb-4">{summary}{wonOnPens ? ' (pens)' : ''}</p>
           </div>
 
-          <div className="mb-6">{renderFixtures('ft')}</div>
+          {!isFinal && <div className="mb-6">{renderOtherFixture('ft')}</div>}
 
           <button
             onClick={proceedFromRoundResult}
@@ -1128,7 +1195,7 @@ export default function CupPage() {
               ))}
             </div>
 
-            {renderFixtures('ht')}
+            {!isFinalRound && renderOtherFixture('ht')}
 
             <button
               onClick={resumeSecondHalf}
