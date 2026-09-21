@@ -33,13 +33,16 @@ function shuffleOptionPositions(optionA: string, optionB: string, optionC: strin
   }
 
   const newCorrectIndex = options.findIndex(o => o.letter === correctAnswer)
+  const newCorrectAnswer = OPTION_LETTERS[newCorrectIndex] ?? correctAnswer
+
+  console.log('shuffleOptionPositions:', { originalCorrectAnswer: correctAnswer, newCorrectAnswer, newCorrectIndex })
 
   return {
     option_a: options[0].text,
     option_b: options[1].text,
     option_c: options[2].text,
     option_d: options[3].text,
-    correct_answer: OPTION_LETTERS[newCorrectIndex],
+    correct_answer: newCorrectAnswer,
   }
 }
 
