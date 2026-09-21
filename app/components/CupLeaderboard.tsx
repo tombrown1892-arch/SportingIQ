@@ -9,10 +9,9 @@ interface CupEntry {
   gamesPlayed: number
   wins: number
   goals: number
-  winRate: number
 }
 
-type Metric = 'wins' | 'winrate' | 'goals'
+type Metric = 'wins' | 'goals'
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'alltime'
 
 export default function CupLeaderboard() {
@@ -87,7 +86,6 @@ export default function CupLeaderboard() {
           gamesPlayed: stats.gamesPlayed,
           wins: stats.wins,
           goals: stats.goals,
-          winRate: stats.gamesPlayed > 0 ? stats.wins / stats.gamesPlayed : 0,
         }
       })
 
@@ -100,14 +98,12 @@ export default function CupLeaderboard() {
   }
 
   const sortedEntries = [...entries].sort((a, b) => {
-    if (metric === 'wins') return b.wins - a.wins
     if (metric === 'goals') return b.goals - a.goals
-    return b.winRate - a.winRate || b.wins - a.wins
+    return b.wins - a.wins
   })
 
   const metrics: { key: Metric, label: string }[] = [
     { key: 'wins', label: 'Most Wins' },
-    { key: 'winrate', label: 'Best Win Rate' },
     { key: 'goals', label: 'Most Goals' },
   ]
 
@@ -119,9 +115,8 @@ export default function CupLeaderboard() {
   ]
 
   const valueFor = (entry: CupEntry) => {
-    if (metric === 'wins') return `${entry.wins} 🏆`
     if (metric === 'goals') return `${entry.goals} ⚽`
-    return `${Math.round(entry.winRate * 100)}%`
+    return `${entry.wins} 🏆`
   }
 
   return (
