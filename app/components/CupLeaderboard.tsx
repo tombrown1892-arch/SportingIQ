@@ -36,13 +36,17 @@ export default function CupLeaderboard() {
       startOfToday.setHours(0, 0, 0, 0)
       query = query.gte('created_at', startOfToday.toISOString())
     } else if (timePeriod === 'weekly') {
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      query = query.gte('created_at', weekAgo.toISOString())
+      const startOfWeek = new Date()
+      const dayOfWeek = startOfWeek.getDay() // 0=Sunday, 1=Monday, ... 6=Saturday
+      const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      startOfWeek.setDate(startOfWeek.getDate() - daysSinceMonday)
+      startOfWeek.setHours(0, 0, 0, 0)
+      query = query.gte('created_at', startOfWeek.toISOString())
     } else if (timePeriod === 'monthly') {
-      const monthAgo = new Date()
-      monthAgo.setDate(monthAgo.getDate() - 30)
-      query = query.gte('created_at', monthAgo.toISOString())
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+      query = query.gte('created_at', startOfMonth.toISOString())
     }
 
     const { data, error } = await query
