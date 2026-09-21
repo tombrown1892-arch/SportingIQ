@@ -15,6 +15,34 @@ const emptyQuestion = {
   order_number: 1,
 }
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const
+
+// Shuffles the four options into a random order and returns the new option
+// positions along with the letter the correct answer landed on.
+function shuffleOptionPositions(optionA: string, optionB: string, optionC: string, optionD: string, correctAnswer: string) {
+  const options = [
+    { letter: 'A', text: optionA },
+    { letter: 'B', text: optionB },
+    { letter: 'C', text: optionC },
+    { letter: 'D', text: optionD },
+  ]
+
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[options[i], options[j]] = [options[j], options[i]]
+  }
+
+  const newCorrectIndex = options.findIndex(o => o.letter === correctAnswer)
+
+  return {
+    option_a: options[0].text,
+    option_b: options[1].text,
+    option_c: options[2].text,
+    option_d: options[3].text,
+    correct_answer: OPTION_LETTERS[newCorrectIndex],
+  }
+}
+
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
@@ -83,7 +111,8 @@ export default function AdminPage() {
         return
       }
 
-      parsedQuestions.push({ question_text, option_a, option_b, option_c, option_d, correct_answer })
+      const shuffled = shuffleOptionPositions(option_a, option_b, option_c, option_d, correct_answer)
+      parsedQuestions.push({ question_text, ...shuffled })
     })
 
     if (parsedQuestions.length === 0) {
