@@ -15,7 +15,6 @@ export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
-  const [isPremium, setIsPremium] = useState(false)
   const [gameTab, setGameTab] = useState<'quiz' | 'cup'>('quiz')
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly' | 'alltime'>('daily')
   const [myRank, setMyRank] = useState<number | null>(null)
@@ -32,14 +31,6 @@ export default function LeaderboardPage() {
   const loadUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_premium')
-        .eq('id', user.id)
-        .single()
-      setIsPremium(profile?.is_premium || false)
-    }
   }
 
   const loadLeaderboard = async () => {
@@ -165,8 +156,8 @@ export default function LeaderboardPage() {
           ))}
         </div>
 
-        {/* Premium — pinned rank with full position */}
-        {isPremium && myEntry && myRank && myRank > 3 && (
+        {/* Pinned rank with full position */}
+        {myEntry && myRank && myRank > 3 && (
           <div className="bg-green-900/20 border border-green-700 rounded-xl p-4 mb-6">
             <p className="text-green-400 text-sm font-medium mb-2">Your Position</p>
             <div className="flex items-center justify-between">
@@ -179,29 +170,6 @@ export default function LeaderboardPage() {
               </div>
               <div className="text-green-400 font-bold text-lg">{myEntry.total_points} pts</div>
             </div>
-          </div>
-        )}
-
-        {/* Free user — pinned but greyed out with upgrade prompt */}
-        {!isPremium && myEntry && myRank && myRank > 3 && (
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 opacity-60">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-4">
-                <div className="text-gray-600 font-bold w-8">##</div>
-                <div>
-                  <div className="font-semibold text-gray-400">{myEntry.username}</div>
-                  <div className="text-gray-600 text-sm">{myEntry.score}/10 correct • {myEntry.time_seconds}s</div>
-                </div>
-              </div>
-              <div className="text-gray-600 font-bold text-lg">??? pts</div>
-            </div>
-            <Link
-              href="/premium"
-              className="block w-full text-center py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition opacity-100"
-              style={{ opacity: 1 }}
-            >
-              Upgrade to Premium to see your rank
-            </Link>
           </div>
         )}
 
@@ -239,20 +207,7 @@ export default function LeaderboardPage() {
               </div>
             ))}
 
-            {/* Premium unlock card below top 3 */}
-            {!isPremium && entries.length > 3 && (
-              <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center mt-4">
-                <div className="text-3xl mb-3">🏆</div>
-                <p className="font-bold mb-1">See the Full Leaderboard</p>
-                <p className="text-gray-400 text-sm mb-4">Upgrade to Premium to see every player ranked</p>
-                <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
-                  Go Premium — £2.99/mo
-                </Link>
-              </div>
-            )}
-
-            {/* Full leaderboard for premium */}
-            {isPremium && entries.slice(3).map((entry, index) => (
+            {entries.slice(3).map((entry, index) => (
               <div
                 key={index + 3}
                 className="flex items-center justify-between p-4 rounded-xl border bg-gray-900 border-gray-800"

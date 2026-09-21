@@ -17,25 +17,11 @@ type Metric = 'wins' | 'winrate' | 'goals'
 export default function CupLeaderboard() {
   const [entries, setEntries] = useState<CupEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [isPremium, setIsPremium] = useState(false)
   const [metric, setMetric] = useState<Metric>('wins')
 
   useEffect(() => {
-    loadPremiumStatus()
     loadCupResults()
   }, [])
-
-  const loadPremiumStatus = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_premium')
-        .eq('id', user.id)
-        .single()
-      setIsPremium(profile?.is_premium || false)
-    }
-  }
 
   const loadCupResults = async () => {
     setLoading(true)
@@ -144,18 +130,7 @@ export default function CupLeaderboard() {
             </div>
           ))}
 
-          {!isPremium && sortedEntries.length > 3 && (
-            <div className="bg-gray-900 border border-green-800 rounded-2xl p-6 text-center mt-4">
-              <div className="text-3xl mb-3">🏆</div>
-              <p className="font-bold mb-1">See the Full Cup Leaderboard</p>
-              <p className="text-gray-400 text-sm mb-4">Upgrade to Premium to see every player ranked</p>
-              <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition">
-                Go Premium — £2.99/mo
-              </Link>
-            </div>
-          )}
-
-          {isPremium && sortedEntries.slice(3).map((entry, index) => (
+          {sortedEntries.slice(3).map((entry, index) => (
             <div
               key={entry.userId}
               className="flex items-center justify-between p-4 rounded-xl border bg-gray-900 border-gray-800"

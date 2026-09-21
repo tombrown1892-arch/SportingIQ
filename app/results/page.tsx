@@ -121,15 +121,6 @@ function ResultsContent() {
           </div>
         )}
 
-        {!loading && !isPremium && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6 text-center">
-            <p className="text-gray-400 text-sm mb-3">Want to see where you ranked today?</p>
-            <Link href="/premium" className="inline-block px-6 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition">
-              Upgrade to Premium — £2.99/mo
-            </Link>
-          </div>
-        )}
-
         {answerBreakdown.length > 0 && (
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
             <h3 className="font-bold mb-4">Answer Breakdown</h3>

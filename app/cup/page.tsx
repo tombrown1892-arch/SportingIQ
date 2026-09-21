@@ -254,7 +254,6 @@ function randomCorners(): number {
 export default function CupPage() {
   const [gameState, setGameState] = useState<'loading' | 'team-name' | 'pre-match' | 'playing' | 'shootout' | 'round-result' | 'cup-won' | 'cup-lost'>('loading')
   const [user, setUser] = useState<any>(null)
-  const [isPremium, setIsPremium] = useState(false)
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [hasQuestions, setHasQuestions] = useState(false)
   const [teamName, setTeamName] = useState('')
@@ -341,15 +340,6 @@ export default function CupPage() {
   const loadCup = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
-
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_premium')
-        .eq('id', user.id)
-        .single()
-      setIsPremium(profile?.is_premium || false)
-    }
 
     const today = new Date().toISOString().split('T')[0]
     const { data: quizData } = await supabase
@@ -819,25 +809,8 @@ export default function CupPage() {
             <div className="font-bold">Sign Up Free</div>
             <div className="text-xs text-gray-400 font-normal mt-0.5">Save your stats and appear on the leaderboard</div>
           </Link>
-          <Link href="/premium" className="block w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition text-center">
-            <div className="font-bold">Go Premium</div>
-            <div className="text-xs text-gray-400 font-normal mt-0.5">View the full cup leaderboard</div>
-          </Link>
-        </div>
-      )
-    }
-    if (!isPremium) {
-      return (
-        <div className="space-y-3">
-          <button
-            onClick={startCup}
-            className="w-full py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition"
-          >
-            Play Again
-          </button>
-          <Link href="/premium" className="block w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition text-center">
-            <div className="font-bold">Go Premium</div>
-            <div className="text-xs text-gray-400 font-normal mt-0.5">See how you rank on the cup leaderboard — £2.99/mo</div>
+          <Link href="/leaderboard/cup" className="block w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-xl transition text-center font-bold">
+            View Cup Leaderboard
           </Link>
         </div>
       )

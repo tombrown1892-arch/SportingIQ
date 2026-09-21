@@ -91,7 +91,7 @@ export default function ProfilePage() {
 			setBadges(badgesData)
 		}
 
-		if (profileData?.is_premium) {
+		if (profileData?.username) {
 			await loadRankings(user.id, profileData.username)
 		}
 
@@ -200,11 +200,6 @@ export default function ProfilePage() {
 							{profile?.is_premium ? '⭐ Premium' : 'Free'}
 						</div>
 					</div>
-					{!profile?.is_premium && (
-						<Link href="/premium" className="block w-full text-center py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition text-sm">
-							Upgrade to Premium — £2.99/month
-						</Link>
-					)}
 					{profile?.is_premium && (
 						<a href="https://billing.stripe.com" target="_blank" rel="noopener noreferrer" className="block w-full text-center py-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition text-sm">
 							Manage or cancel subscription
@@ -220,7 +215,7 @@ export default function ProfilePage() {
 						Badges {badges.length > 0 && `(${badges.length})`}
 					</button>
 					<button onClick={() => setActiveTab('rankings')} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'rankings' ? 'bg-green-500 text-black' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-						Rankings {!profile?.is_premium && '🔒'}
+						Rankings
 					</button>
 				</div>
 
@@ -314,18 +309,7 @@ export default function ProfilePage() {
 				)}
 
 				{activeTab === 'rankings' && (
-					<>
-						{!profile?.is_premium ? (
-							<div className="bg-gray-900 border border-green-800 rounded-2xl p-8 text-center">
-								<div className="text-4xl mb-4">🏆</div>
-								<h3 className="text-xl font-bold mb-2">Premium Feature</h3>
-								<p className="text-gray-400 mb-6">Upgrade to see exactly where you rank against every player — today, this week, this month and all time.</p>
-								<Link href="/premium" className="inline-block px-8 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-xl transition">
-									Go Premium — £2.99/month
-								</Link>
-							</div>
-						) : (
-							<div className="space-y-4">
+						<div className="space-y-4">
 								<div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
 									<h3 className="text-green-400 font-semibold text-sm mb-4">TODAY</h3>
 									{todayRank ? (
@@ -362,8 +346,6 @@ export default function ProfilePage() {
 									</div>
 								</div>
 							</div>
-						)}
-					</>
 				)}
 			</div>
 		</main>
