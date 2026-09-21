@@ -13,22 +13,36 @@ interface CupEntry {
 }
 
 type Metric = 'wins' | 'winrate' | 'goals'
+type TimePeriod = 'alltime' | 'weekly' | 'daily'
 
 export default function CupLeaderboard() {
   const [entries, setEntries] = useState<CupEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [metric, setMetric] = useState<Metric>('wins')
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('alltime')
 
   useEffect(() => {
     loadCupResults()
-  }, [])
+  }, [timePeriod])
 
   const loadCupResults = async () => {
     setLoading(true)
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('cup_results')
       .select('user_id, won, goals_scored')
+
+    if (timePeriod === 'weekly') {
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      query = query.gte('created_at', weekAgo.toISOString())
+    } else if (timePeriod === 'daily') {
+      const startOfToday = new Date()
+      startOfToday.setHours(0, 0, 0, 0)
+      query = query.gte('created_at', startOfToday.toISOString())
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error('Error loading cup results', error)
@@ -93,6 +107,12 @@ export default function CupLeaderboard() {
     { key: 'goals', label: 'Most Goals' },
   ]
 
+  const timePeriods: { key: TimePeriod, label: string }[] = [
+    { key: 'alltime', label: 'All Time' },
+    { key: 'weekly', label: 'This Week' },
+    { key: 'daily', label: 'Today' },
+  ]
+
   const valueFor = (entry: CupEntry) => {
     if (metric === 'wins') return `${entry.wins} 🏆`
     if (metric === 'goals') return `${entry.goals} ⚽`
@@ -101,6 +121,22 @@ export default function CupLeaderboard() {
 
   return (
     <div>
+      <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+        {timePeriods.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => setTimePeriod(p.key)}
+            className={`px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0 ${
+              timePeriod === p.key
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {metrics.map((m) => (
           <button
