@@ -765,7 +765,6 @@ export default function CupPage() {
     if (user) {
       const cupResultPayload = {
         user_id: user.id,
-        quiz_id: quiz?.id ?? null,
         rounds_reached: roundsWon,
         won: won,
         goals_scored: totalGoalsScoredRef.current,
