@@ -12,7 +12,7 @@ interface Question {
   option_c: string
   option_d: string
   correct_answer: string
-  order_number: number
+  order_number?: number
 }
 
 interface Quiz {
@@ -327,7 +327,6 @@ function evaluateShootout(kicks: ShootoutKick[]): boolean | null {
 export default function CupPage() {
   const [gameState, setGameState] = useState<'loading' | 'team-name' | 'pre-match' | 'playing' | 'shootout' | 'round-result' | 'cup-won' | 'cup-lost'>('loading')
   const [user, setUser] = useState<any>(null)
-  const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [hasQuestions, setHasQuestions] = useState(false)
   const [teamName, setTeamName] = useState('')
 
@@ -364,7 +363,7 @@ export default function CupPage() {
   const clockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const questionPoolRef = useRef<Question[]>([])
-  const poolIndexRef = useRef(0)
+  const usedQuestionIdsRef = useRef<Set<string>>(new Set())
 
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null)
   const activeQuestionRef = useRef<Question | null>(null)
@@ -414,6 +413,34 @@ export default function CupPage() {
     const { data: { user } } = await supabase.auth.getUser()
     setUser(user)
 
+    const { data: cupQuestionsData, error: cupQuestionsError } = await supabase
+      .from('cup_questions')
+      .select('*')
+      .limit(500)
+
+    if (cupQuestionsError) {
+      console.error('Error loading cup_questions', cupQuestionsError)
+    }
+
+    if (cupQuestionsData && cupQuestionsData.length > 0) {
+      questionPoolRef.current = shuffle(cupQuestionsData).map((q: any) => ({
+        id: q.id,
+        question_text: q.question_text,
+        image_url: q.image_url ?? null,
+        option_a: q.option_a,
+        option_b: q.option_b,
+        option_c: q.option_c,
+        option_d: q.option_d,
+        correct_answer: q.correct_answer,
+      }))
+      usedQuestionIdsRef.current = new Set()
+      setHasQuestions(true)
+      setGameState('team-name')
+      return
+    }
+
+    console.warn('cup_questions table is empty — falling back to today\'s quiz questions for the Cup.')
+
     const today = new Date().toISOString().split('T')[0]
     const { data: quizData } = await supabase
       .from('quizzes')
@@ -426,7 +453,6 @@ export default function CupPage() {
       setGameState('team-name')
       return
     }
-    setQuiz(quizData)
 
     const { data: questionsData } = await supabase
       .from('questions')
@@ -436,20 +462,23 @@ export default function CupPage() {
 
     if (questionsData && questionsData.length > 0) {
       questionPoolRef.current = shuffle(questionsData)
-      poolIndexRef.current = 0
+      usedQuestionIdsRef.current = new Set()
       setHasQuestions(true)
     }
 
     setGameState('team-name')
   }
 
+  // Picks a random, not-yet-used question from the pool for this run. Once every
+  // question in the pool has been used, the used-set resets so the run can continue.
   const getNextQuestion = (): Question => {
-    if (poolIndexRef.current >= questionPoolRef.current.length) {
-      questionPoolRef.current = shuffle(questionPoolRef.current)
-      poolIndexRef.current = 0
+    let available = questionPoolRef.current.filter(q => !usedQuestionIdsRef.current.has(q.id))
+    if (available.length === 0) {
+      usedQuestionIdsRef.current = new Set()
+      available = questionPoolRef.current
     }
-    const q = questionPoolRef.current[poolIndexRef.current]
-    poolIndexRef.current += 1
+    const q = pickRandom(available)
+    usedQuestionIdsRef.current.add(q.id)
     return q
   }
 
@@ -802,6 +831,7 @@ export default function CupPage() {
     totalGoalsConcededRef.current = 0
     correctAnswersRef.current = 0
     incorrectAnswersRef.current = 0
+    usedQuestionIdsRef.current = new Set()
     parallelBracketRef.current = generateParallelBracket()
     prepareRound(0)
   }
@@ -998,7 +1028,7 @@ export default function CupPage() {
           />
 
           {!hasQuestions && (
-            <p className="text-center text-gray-500 text-sm mb-4">No quiz questions available today — check back soon.</p>
+            <p className="text-center text-gray-500 text-sm mb-4">No questions available right now — check back soon.</p>
           )}
 
           <button

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const ADMIN_PASSWORD = 'Liverpool1892@Tom.Brown2003'
@@ -19,6 +19,7 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [activeSection, setActiveSection] = useState<'quiz' | 'cup'>('quiz')
   const [quizTitle, setQuizTitle] = useState('')
   const [quizDate, setQuizDate] = useState(new Date().toISOString().split('T')[0])
   const [questions, setQuestions] = useState(
@@ -27,12 +28,87 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
+  const [cupQuestionsInput, setCupQuestionsInput] = useState('')
+  const [cupImporting, setCupImporting] = useState(false)
+  const [cupMessage, setCupMessage] = useState('')
+  const [cupQuestionCount, setCupQuestionCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (authenticated) {
+      loadCupQuestionCount()
+    }
+  }, [authenticated])
+
   const handlePasswordSubmit = () => {
     if (passwordInput === ADMIN_PASSWORD) {
       setAuthenticated(true)
     } else {
       setPasswordError('Incorrect password')
     }
+  }
+
+  const loadCupQuestionCount = async () => {
+    const { count, error } = await supabase
+      .from('cup_questions')
+      .select('*', { count: 'exact', head: true })
+
+    if (!error) {
+      setCupQuestionCount(count ?? 0)
+    }
+  }
+
+  const handleCupImport = async () => {
+    setCupImporting(true)
+    setCupMessage('')
+
+    const lines = cupQuestionsInput
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+
+    const parsedQuestions: { question_text: string, option_a: string, option_b: string, option_c: string, option_d: string, correct_answer: string }[] = []
+    const invalidLines: number[] = []
+
+    lines.forEach((line, i) => {
+      const parts = line.split('|').map(p => p.trim())
+      const [question_text, option_a, option_b, option_c, option_d, correctAnswerRaw] = parts
+      const correct_answer = (correctAnswerRaw || '').toUpperCase()
+
+      if (
+        parts.length !== 6 ||
+        !question_text || !option_a || !option_b || !option_c || !option_d ||
+        !['A', 'B', 'C', 'D'].includes(correct_answer)
+      ) {
+        invalidLines.push(i + 1)
+        return
+      }
+
+      parsedQuestions.push({ question_text, option_a, option_b, option_c, option_d, correct_answer })
+    })
+
+    if (parsedQuestions.length === 0) {
+      setCupMessage('Error: No valid questions found. Check the pipe-separated format.')
+      setCupImporting(false)
+      return
+    }
+
+    const { error } = await supabase.from('cup_questions').insert(parsedQuestions)
+
+    if (error) {
+      setCupMessage('Error: ' + error.message)
+      setCupImporting(false)
+      return
+    }
+
+    const successMsg = `Imported ${parsedQuestions.length} question${parsedQuestions.length === 1 ? '' : 's'} successfully!`
+    const skippedMsg = invalidLines.length > 0
+      ? ` Skipped ${invalidLines.length} invalid line${invalidLines.length === 1 ? '' : 's'} (line${invalidLines.length === 1 ? '' : 's'} ${invalidLines.join(', ')}).`
+      : ''
+
+    setCupMessage(successMsg + skippedMsg)
+    setCupQuestionsInput('')
+    setCupImporting(false)
+    loadCupQuestionCount()
   }
 
   const updateQuestion = (index: number, field: string, value: string) => {
@@ -106,8 +182,71 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-gray-950 text-white px-6 py-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-green-400 mb-8">Admin — Create Quiz</h1>
+        <h1 className="text-2xl font-bold text-green-400 mb-6">Admin</h1>
 
+        <div className="flex gap-2 mb-8">
+          <button
+            onClick={() => setActiveSection('quiz')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+              activeSection === 'quiz'
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Daily Quiz
+          </button>
+          <button
+            onClick={() => setActiveSection('cup')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
+              activeSection === 'cup'
+                ? 'bg-green-500 text-black'
+                : 'bg-gray-900 border border-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            Cup Questions
+          </button>
+        </div>
+
+        {activeSection === 'cup' && (
+          <div>
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold">Bulk Import Cup Questions</h2>
+                <span className="text-sm text-gray-400">
+                  {cupQuestionCount === null ? 'Loading count...' : `${cupQuestionCount} question${cupQuestionCount === 1 ? '' : 's'} in bank`}
+                </span>
+              </div>
+
+              <label className="text-sm text-gray-400 mb-1 block">
+                One question per line: Question text | Option A | Option B | Option C | Option D | Correct Answer (A, B, C or D)
+              </label>
+              <textarea
+                value={cupQuestionsInput}
+                onChange={(e) => setCupQuestionsInput(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-green-500 font-mono text-sm"
+                placeholder={'Who won the 2022 World Cup? | Argentina | France | Brazil | Croatia | A'}
+                rows={12}
+              />
+
+              {cupMessage && (
+                <p className={`text-sm mt-4 ${cupMessage.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+                  {cupMessage}
+                </p>
+              )}
+
+              <button
+                onClick={handleCupImport}
+                disabled={cupImporting || !cupQuestionsInput.trim()}
+                className="w-full mt-4 bg-green-500 hover:bg-green-400 text-black font-bold py-4 rounded-xl transition disabled:opacity-50 text-lg"
+              >
+                {cupImporting ? 'Importing...' : 'Import Questions'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'quiz' && (
+        <>
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -202,6 +341,8 @@ export default function AdminPage() {
         >
           {saving ? 'Saving Quiz...' : 'Save & Publish Quiz'}
         </button>
+        </>
+        )}
       </div>
     </main>
   )
