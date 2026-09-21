@@ -251,6 +251,32 @@ function randomCorners(): number {
   return 2 + Math.floor(Math.random() * 4) // 2-5
 }
 
+const SHOOTOUT_KICKS_PER_SIDE = 5
+
+// Returns true if the player has mathematically won, false if the opposition
+// has mathematically won, or null if the shootout must continue.
+function evaluateShootout(kicks: ShootoutKick[]): boolean | null {
+  const playerTaken = kicks.filter(k => k.taker === 'player').length
+  const oppTaken = kicks.filter(k => k.taker === 'opposition').length
+  const playerScored = kicks.filter(k => k.taker === 'player' && k.scored).length
+  const oppScored = kicks.filter(k => k.taker === 'opposition' && k.scored).length
+
+  const playerRemaining = Math.max(SHOOTOUT_KICKS_PER_SIDE - playerTaken, 0)
+  const oppRemaining = Math.max(SHOOTOUT_KICKS_PER_SIDE - oppTaken, 0)
+
+  // It's already over if the other side cannot catch up even by scoring every remaining kick.
+  if (playerScored > oppScored + oppRemaining) return true
+  if (oppScored > playerScored + playerRemaining) return false
+
+  // Sudden death: once both sides have taken an equal number of kicks beyond
+  // the initial 5 each, any difference in scores decides it.
+  if (playerTaken === oppTaken && playerTaken > SHOOTOUT_KICKS_PER_SIDE && playerScored !== oppScored) {
+    return playerScored > oppScored
+  }
+
+  return null
+}
+
 export default function CupPage() {
   const [gameState, setGameState] = useState<'loading' | 'team-name' | 'pre-match' | 'playing' | 'shootout' | 'round-result' | 'cup-won' | 'cup-lost'>('loading')
   const [user, setUser] = useState<any>(null)
@@ -638,16 +664,6 @@ export default function CupPage() {
   const nextShootoutKick = () => {
     const kicks = shootoutKicksRef.current
     const kickNum = kicks.length
-
-    if (kickNum % 2 === 0 && kickNum >= 10) {
-      const playerScored = kicks.filter(k => k.taker === 'player' && k.scored).length
-      const oppScored = kicks.filter(k => k.taker === 'opposition' && k.scored).length
-      if (playerScored !== oppScored) {
-        finishShootout(playerScored > oppScored)
-        return
-      }
-    }
-
     const taker: 'player' | 'opposition' = kickNum % 2 === 0 ? 'player' : 'opposition'
     setActiveEventType(taker)
     const q = getNextQuestion()
@@ -668,10 +684,16 @@ export default function CupPage() {
     setFlash(flashType)
     pushCommentary(text, lineType, `P${shootoutKicksRef.current.length}`)
 
+    const decided = evaluateShootout(shootoutKicksRef.current)
+
     setTimeout(() => {
       setResultBanner(null)
       setFlash(null)
-      nextShootoutKick()
+      if (decided !== null) {
+        finishShootout(decided)
+      } else {
+        nextShootoutKick()
+      }
     }, 1200)
   }
 
@@ -693,13 +715,19 @@ export default function CupPage() {
     const roundsWon = won ? ROUNDS.length : roundIndexRef.current
 
     if (user) {
-      await supabase.from('cup_results').insert({
+      const cupResultPayload = {
         user_id: user.id,
         quiz_id: quiz?.id ?? null,
         rounds_won: roundsWon,
         won_cup: won,
         goals_scored: totalGoalsScoredRef.current,
-      })
+      }
+      const { error: cupResultError } = await supabase.from('cup_results').insert(cupResultPayload)
+      if (cupResultError) {
+        console.error('Failed to save cup result', cupResultError)
+      } else {
+        console.log('Cup result saved', cupResultPayload)
+      }
     } else {
       const raw = localStorage.getItem('cupGuestStats')
       const stats = raw ? JSON.parse(raw) : { gamesPlayed: 0, cupsWon: 0, bestRound: 0 }
@@ -1158,7 +1186,7 @@ export default function CupPage() {
             </div>
             <div className="flex gap-1">
               {shootoutKicks.filter(k => k.taker === 'opposition').map((k, i) => (
-                <span key={i} className={`w-4 h-4 rounded-full ${k.scored ? 'bg-red-500' : 'bg-green-500'}`} />
+                <span key={i} className={`w-4 h-4 rounded-full ${k.scored ? 'bg-green-500' : 'bg-red-500'}`} />
               ))}
             </div>
           </div>

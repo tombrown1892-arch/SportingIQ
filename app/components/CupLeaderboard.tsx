@@ -26,35 +26,56 @@ export default function CupLeaderboard() {
   const loadCupResults = async () => {
     setLoading(true)
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('cup_results')
-      .select('user_id, won_cup, goals_scored, profiles (username)')
+      .select('user_id, won_cup, goals_scored')
 
-    if (data) {
-      const byUser = new Map<string, CupEntry>()
+    if (error) {
+      console.error('Error loading cup results', error)
+      setEntries([])
+      setLoading(false)
+      return
+    }
 
-      data.forEach((row: any) => {
+    if (data && data.length > 0) {
+      const byUser = new Map<string, { gamesPlayed: number, wins: number, goals: number }>()
+
+      data.forEach((row) => {
         const uid = row.user_id
-        const existing = byUser.get(uid) || {
-          userId: uid,
-          username: row.profiles?.username || 'Anonymous',
-          gamesPlayed: 0,
-          wins: 0,
-          goals: 0,
-          winRate: 0,
-        }
+        const existing = byUser.get(uid) || { gamesPlayed: 0, wins: 0, goals: 0 }
         existing.gamesPlayed += 1
         if (row.won_cup) existing.wins += 1
         existing.goals += row.goals_scored || 0
         byUser.set(uid, existing)
       })
 
-      const aggregated = Array.from(byUser.values()).map(e => ({
-        ...e,
-        winRate: e.gamesPlayed > 0 ? e.wins / e.gamesPlayed : 0,
-      }))
+      const userIds = Array.from(byUser.keys())
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', userIds)
+
+      if (profilesError) {
+        console.error('Error loading profiles for cup leaderboard', profilesError)
+      }
+
+      const usernameById = new Map((profiles || []).map(p => [p.id, p.username]))
+
+      const aggregated: CupEntry[] = userIds.map(uid => {
+        const stats = byUser.get(uid)!
+        return {
+          userId: uid,
+          username: usernameById.get(uid) || 'Anonymous',
+          gamesPlayed: stats.gamesPlayed,
+          wins: stats.wins,
+          goals: stats.goals,
+          winRate: stats.gamesPlayed > 0 ? stats.wins / stats.gamesPlayed : 0,
+        }
+      })
 
       setEntries(aggregated)
+    } else {
+      setEntries([])
     }
 
     setLoading(false)
