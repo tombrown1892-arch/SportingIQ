@@ -34,9 +34,9 @@ export default function Home() {
 
     const { data: cupResults } = await supabase
       .from('cup_results')
-      .select('won_cup')
+      .select('won')
       .eq('user_id', user.id)
-      .eq('won_cup', true)
+      .eq('won', true)
     setCupsWon(cupResults?.length || 0)
   }
 

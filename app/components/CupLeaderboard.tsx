@@ -28,7 +28,7 @@ export default function CupLeaderboard() {
 
     const { data, error } = await supabase
       .from('cup_results')
-      .select('user_id, won_cup, goals_scored')
+      .select('user_id, won, goals_scored')
 
     if (error) {
       console.error('Error loading cup results', error)
@@ -44,7 +44,7 @@ export default function CupLeaderboard() {
         const uid = row.user_id
         const existing = byUser.get(uid) || { gamesPlayed: 0, wins: 0, goals: 0 }
         existing.gamesPlayed += 1
-        if (row.won_cup) existing.wins += 1
+        if (row.won) existing.wins += 1
         existing.goals += row.goals_scored || 0
         byUser.set(uid, existing)
       })

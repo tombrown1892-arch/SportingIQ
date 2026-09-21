@@ -718,8 +718,8 @@ export default function CupPage() {
       const cupResultPayload = {
         user_id: user.id,
         quiz_id: quiz?.id ?? null,
-        rounds_won: roundsWon,
-        won_cup: won,
+        rounds_reached: roundsWon,
+        won: won,
         goals_scored: totalGoalsScoredRef.current,
       }
       const { error: cupResultError } = await supabase.from('cup_results').insert(cupResultPayload)
