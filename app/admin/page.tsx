@@ -15,37 +15,6 @@ const emptyQuestion = {
   order_number: 1,
 }
 
-const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const
-
-// Shuffles the four options into a random order (Fisher-Yates over an index
-// array) and returns the new option positions along with the letter the
-// correct answer landed on.
-function shuffleOptionPositions(optionA: string, optionB: string, optionC: string, optionD: string, correctAnswer: string) {
-  const options = [optionA, optionB, optionC, optionD]
-  const indices = [0, 1, 2, 3]
-
-  for (let i = 3; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[indices[i], indices[j]] = [indices[j], indices[i]]
-  }
-
-  const originalCorrectIndex = OPTION_LETTERS.indexOf(correctAnswer as typeof OPTION_LETTERS[number])
-  const newCorrectIndex = indices.indexOf(originalCorrectIndex)
-  const newCorrectAnswer = OPTION_LETTERS[newCorrectIndex] ?? correctAnswer
-
-  const shuffled = indices.map(i => options[i])
-
-  console.log('shuffleOptionPositions:', { indices, originalCorrectAnswer: correctAnswer, newCorrectAnswer, newCorrectIndex })
-
-  return {
-    option_a: shuffled[0],
-    option_b: shuffled[1],
-    option_c: shuffled[2],
-    option_d: shuffled[3],
-    correct_answer: newCorrectAnswer,
-  }
-}
-
 export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
@@ -114,8 +83,7 @@ export default function AdminPage() {
         return
       }
 
-      const shuffled = shuffleOptionPositions(option_a, option_b, option_c, option_d, correct_answer)
-      parsedQuestions.push({ question_text, ...shuffled })
+      parsedQuestions.push({ question_text, option_a, option_b, option_c, option_d, correct_answer })
     })
 
     if (parsedQuestions.length === 0) {

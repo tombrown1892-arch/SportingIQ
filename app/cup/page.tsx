@@ -190,6 +190,34 @@ function pickRandom<T>(pool: T[]): T {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const
+
+// Shuffles a question's four options into a random display order (Fisher-Yates
+// over an index array), remapping the stored correct_answer letter to wherever
+// it lands so every time a question is shown, the option order differs.
+function shuffleQuestionOptions(question: Question): Question {
+  const texts = [question.option_a, question.option_b, question.option_c, question.option_d]
+  const indices = [0, 1, 2, 3]
+
+  for (let i = 3; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[indices[i], indices[j]] = [indices[j], indices[i]]
+  }
+
+  const originalCorrectIndex = OPTION_LETTERS.indexOf(question.correct_answer as typeof OPTION_LETTERS[number])
+  const newCorrectIndex = indices.indexOf(originalCorrectIndex)
+  const shuffledTexts = indices.map(i => texts[i])
+
+  return {
+    ...question,
+    option_a: shuffledTexts[0],
+    option_b: shuffledTexts[1],
+    option_c: shuffledTexts[2],
+    option_d: shuffledTexts[3],
+    correct_answer: OPTION_LETTERS[newCorrectIndex] ?? question.correct_answer,
+  }
+}
+
 function pickOpponent(pool: string[]): string {
   return pickRandom(pool)
 }
@@ -486,8 +514,9 @@ export default function CupPage() {
   }
 
   const askQuestion = (question: Question, timeLimit: number, onResolve: (correct: boolean) => void) => {
-    activeQuestionRef.current = question
-    setActiveQuestion(question)
+    const shuffledQuestion = shuffleQuestionOptions(question)
+    activeQuestionRef.current = shuffledQuestion
+    setActiveQuestion(shuffledQuestion)
     questionAnsweredRef.current = false
     setQuestionAnswered(false)
     setQuestionSelected(null)
