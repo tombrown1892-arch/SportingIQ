@@ -17,31 +17,31 @@ const emptyQuestion = {
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const
 
-// Shuffles the four options into a random order and returns the new option
-// positions along with the letter the correct answer landed on.
+// Shuffles the four options into a random order (Fisher-Yates over an index
+// array) and returns the new option positions along with the letter the
+// correct answer landed on.
 function shuffleOptionPositions(optionA: string, optionB: string, optionC: string, optionD: string, correctAnswer: string) {
-  const options = [
-    { letter: 'A', text: optionA },
-    { letter: 'B', text: optionB },
-    { letter: 'C', text: optionC },
-    { letter: 'D', text: optionD },
-  ]
+  const options = [optionA, optionB, optionC, optionD]
+  const indices = [0, 1, 2, 3]
 
-  for (let i = options.length - 1; i > 0; i--) {
+  for (let i = 3; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[options[i], options[j]] = [options[j], options[i]]
+    ;[indices[i], indices[j]] = [indices[j], indices[i]]
   }
 
-  const newCorrectIndex = options.findIndex(o => o.letter === correctAnswer)
+  const originalCorrectIndex = OPTION_LETTERS.indexOf(correctAnswer as typeof OPTION_LETTERS[number])
+  const newCorrectIndex = indices.indexOf(originalCorrectIndex)
   const newCorrectAnswer = OPTION_LETTERS[newCorrectIndex] ?? correctAnswer
 
-  console.log('shuffleOptionPositions:', { originalCorrectAnswer: correctAnswer, newCorrectAnswer, newCorrectIndex })
+  const shuffled = indices.map(i => options[i])
+
+  console.log('shuffleOptionPositions:', { indices, originalCorrectAnswer: correctAnswer, newCorrectAnswer, newCorrectIndex })
 
   return {
-    option_a: options[0].text,
-    option_b: options[1].text,
-    option_c: options[2].text,
-    option_d: options[3].text,
+    option_a: shuffled[0],
+    option_b: shuffled[1],
+    option_c: shuffled[2],
+    option_d: shuffled[3],
     correct_answer: newCorrectAnswer,
   }
 }

@@ -362,8 +362,9 @@ export default function CupPage() {
   const generalMinutesRef = useRef<number[]>([])
   const clockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const allQuestionsRef = useRef<Question[]>([])
   const questionPoolRef = useRef<Question[]>([])
-  const usedQuestionIdsRef = useRef<Set<string>>(new Set())
+  const poolIndexRef = useRef(0)
 
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null)
   const activeQuestionRef = useRef<Question | null>(null)
@@ -423,7 +424,7 @@ export default function CupPage() {
     }
 
     if (cupQuestionsData && cupQuestionsData.length > 0) {
-      questionPoolRef.current = shuffle(cupQuestionsData).map((q: any) => ({
+      allQuestionsRef.current = cupQuestionsData.map((q: any) => ({
         id: q.id,
         question_text: q.question_text,
         image_url: q.image_url ?? null,
@@ -433,7 +434,6 @@ export default function CupPage() {
         option_d: q.option_d,
         correct_answer: q.correct_answer,
       }))
-      usedQuestionIdsRef.current = new Set()
       setHasQuestions(true)
       setGameState('team-name')
       return
@@ -461,25 +461,24 @@ export default function CupPage() {
       .order('order_number')
 
     if (questionsData && questionsData.length > 0) {
-      questionPoolRef.current = shuffle(questionsData)
-      usedQuestionIdsRef.current = new Set()
+      allQuestionsRef.current = questionsData
       setHasQuestions(true)
     }
 
     setGameState('team-name')
   }
 
-  // Picks a random, not-yet-used question from the pool for this run. Once every
-  // question in the pool has been used, the used-set resets so the run can continue.
+  // Takes the next question sequentially from this run's shuffled pool, so no
+  // question repeats within a run. If the pool runs out mid-run, falls back to
+  // a random pick (logged) rather than ending the run early.
   const getNextQuestion = (): Question => {
-    let available = questionPoolRef.current.filter(q => !usedQuestionIdsRef.current.has(q.id))
-    if (available.length === 0) {
-      usedQuestionIdsRef.current = new Set()
-      available = questionPoolRef.current
+    if (poolIndexRef.current < questionPoolRef.current.length) {
+      const q = questionPoolRef.current[poolIndexRef.current]
+      poolIndexRef.current += 1
+      return q
     }
-    const q = pickRandom(available)
-    usedQuestionIdsRef.current.add(q.id)
-    return q
+    console.warn('Cup question pool exhausted mid-run — falling back to a random question.')
+    return pickRandom(allQuestionsRef.current.length > 0 ? allQuestionsRef.current : questionPoolRef.current)
   }
 
   const pushCommentary = (text: string, type: CommentaryType, badge: string) => {
@@ -831,7 +830,8 @@ export default function CupPage() {
     totalGoalsConcededRef.current = 0
     correctAnswersRef.current = 0
     incorrectAnswersRef.current = 0
-    usedQuestionIdsRef.current = new Set()
+    questionPoolRef.current = shuffle(allQuestionsRef.current)
+    poolIndexRef.current = 0
     parallelBracketRef.current = generateParallelBracket()
     prepareRound(0)
   }
